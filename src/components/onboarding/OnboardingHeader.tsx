@@ -16,7 +16,7 @@ export function OnboardingHeader({ userName }: OnboardingHeaderProps) {
           {/* Logo */}
           <Link href="/onboarding" className="flex items-center gap-3">
             <img
-              src="/logo.png"
+              src="/logo.svg"
               alt="Acme Workforce"
               className="h-9 w-auto rounded-lg"
             />

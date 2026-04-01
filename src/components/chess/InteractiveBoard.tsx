@@ -4,21 +4,20 @@ import React, { useState, useCallback, useMemo } from "react";
 import { Chessboard } from "react-chessboard";
 import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
 
-// Acme Workforce character piece images
-// Adapted from Acme Play app - unique per pawn file, per bishop square color
+// Character piece images (uses classic pieces)
 const STORY_PIECES: Record<string, string> = {
-  wK: "/assets/pieces/story/Wk.png",
-  wQ: "/assets/pieces/story/Wq.png",
-  wR: "/assets/pieces/story/Wr.png",
-  wN: "/assets/pieces/story/Wn.png",
-  wB: "/assets/pieces/story/Wb1.png", // Default light-square bishop
-  wP: "/assets/pieces/story/Wp1.png", // Default pawn
-  bK: "/assets/pieces/story/Bk.png",
-  bQ: "/assets/pieces/story/Bq.png",
-  bR: "/assets/pieces/story/Br.png",
-  bN: "/assets/pieces/story/Bn.png",
-  bB: "/assets/pieces/story/Bb1.png",
-  bP: "/assets/pieces/story/Bp1.png",
+  wK: "/assets/pieces/classic/wK.svg",
+  wQ: "/assets/pieces/classic/wQ.svg",
+  wR: "/assets/pieces/classic/wR.svg",
+  wN: "/assets/pieces/classic/wN.svg",
+  wB: "/assets/pieces/classic/wB.svg",
+  wP: "/assets/pieces/classic/wP.svg",
+  bK: "/assets/pieces/classic/bK.svg",
+  bQ: "/assets/pieces/classic/bQ.svg",
+  bR: "/assets/pieces/classic/bR.svg",
+  bN: "/assets/pieces/classic/bN.svg",
+  bB: "/assets/pieces/classic/bB.svg",
+  bP: "/assets/pieces/classic/bP.svg",
 };
 
 // Classic SVG pieces

@@ -156,7 +156,7 @@ function SetupPasswordForm() {
             <div className="flex justify-center mb-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Acme Workforce"
                 className="rounded-lg h-16 w-auto"
               />

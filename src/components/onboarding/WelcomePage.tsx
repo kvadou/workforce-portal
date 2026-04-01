@@ -104,7 +104,7 @@ export function WelcomePage({ firstName, progressId, config, isPreview = false }
             {/* Logo */}
             <div className="mb-4 lg:mb-6">
               <img
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Acme Workforce"
                 className="h-14 lg:h-16 w-auto rounded-xl shadow-sm"
               />

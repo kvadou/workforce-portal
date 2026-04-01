@@ -159,7 +159,7 @@ export function MainNav({ courses, userName = "Tutor", userRole }: MainNavProps)
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-3 flex-shrink-0">
             <img
-              src="/logo.png"
+              src="/logo.svg"
               alt="Acme Workforce"
               className="h-9 w-auto rounded-lg"
             />

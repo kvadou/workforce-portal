@@ -158,7 +158,7 @@ function emailWrapper(content: string): string {
   <div class="container">
     <div class="card">
       <div class="header">
-        <img src="${APP_URL}/logo.png" alt="Acme Workforce" class="logo">
+        <img src="${APP_URL}/logo.svg" alt="Acme Workforce" class="logo">
       </div>
       ${content}
       <div class="footer">

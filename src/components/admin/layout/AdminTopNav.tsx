@@ -68,7 +68,7 @@ export default function AdminTopNav({ userName, userImage, userEmail, onMenuClic
           className="flex items-center gap-2.5 mr-2 flex-shrink-0"
         >
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Acme Workforce"
             width={28}
             height={28}
