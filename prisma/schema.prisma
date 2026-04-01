@@ -1,0 +1,2277 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ===== ORGANIZATIONS (MULTI-TENANCY) =====
+
+model Organization {
+  id               String                       @id @default(cuid())
+  name             String
+  subdomain        String                       @unique // e.g., "westside", "eastside", "hq"
+  logoUrl          String?
+  primaryColor     String? // Brand customization
+  isHQ             Boolean                      @default(false) // HQ has special privileges
+  isActive         Boolean                      @default(true)
+  settings         Json? // Flexible org-specific settings
+  createdAt        DateTime                     @default(now())
+  updatedAt        DateTime                     @updatedAt
+  users            User[]
+  resources        Resource[]
+  announcements    Announcement[]
+  pages            Page[]
+  curriculumAccess OrganizationCurriculumAccess[]
+
+  @@index([subdomain])
+}
+
+model OrganizationCurriculumAccess {
+  id             String       @id @default(cuid())
+  organizationId String
+  curriculumId   String       @map("courseId") // Keep column name for migration compatibility
+  grantedAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  curriculum     Curriculum   @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, curriculumId])
+  @@index([organizationId])
+  @@index([curriculumId])
+  @@map("OrganizationCourseAccess") // Keep table name for migration compatibility
+}
+
+// ===== AUTHENTICATION & USERS =====
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  passwordHash    String?
+  name            String?
+  role            UserRole         @default(TUTOR)
+  organizationId  String?
+  isOnboarding    Boolean          @default(false) // True until training complete
+  avatarUrl       String?
+  phone           String?
+  bio             String?          @db.Text
+  hireDate        DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  organization    Organization?    @relation(fields: [organizationId], references: [id])
+  sessions        Session[]
+  mediaUploads    Media[]
+  lessonProgress  LessonProgress[]
+  classes         Class[]
+  instructorNotes InstructorNote[]
+  certifications  Certification[]
+
+  // Onboarding relation
+  onboardingProgress OnboardingProgress?
+
+  // TutorProfile relation (for activated tutors)
+  tutorProfile TutorProfile?
+
+  // Gamification - earned badges
+  earnedBadges UserBadge[]
+
+  // LMS - course enrollments
+  courseEnrollments CourseEnrollment[]
+
+  // W-9 / Tax info (sensitive - encrypted at application level)
+  w9BusinessName String?
+  w9BusinessType String?
+  w9TaxId        String? // Encrypted SSN/EIN
+  w9Address      String?
+  w9City         String?
+  w9State        String?
+  w9Zip          String?
+  w9SignedAt     DateTime?
+
+  // Professional profile for onboarding
+  headshotUrl              String?
+  dateOfBirth              DateTime?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  // Additional profile fields
+  languages                String[] // Languages spoken
+  teachingStylePreferences String?  @db.Text
+  availabilityNotes        String?  @db.Text
+  yearsExperience          Int?
+  previousExperience       String?  @db.Text
+
+  // ATS link
+  atsCandidateId   String?
+  atsApplicationId String?
+
+  // Password setup for onboarding
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  // Engagement alerts
+  engagementAlerts EngagementAlert[]
+
+  // Notifications
+  notifications Notification[]
+
+  // Forum relations
+  forumPosts     ForumPost[]
+  forumReplies   ForumReply[]
+  forumReactions ForumReaction[]
+
+  // Course reviews
+  courseReviews CourseReview[]
+
+  // Goals
+  goals TutorGoal[]
+
+  // Push notifications
+  pushSubscriptions PushSubscription[]
+
+  // Course certificates
+  certificates CourseCertificate[]
+
+  // Onboarding certificates
+  onboardingCertificates OnboardingCertificate[]
+
+  // Training exercises // Chess puzzles & lessons interactive lessons
+  puzzleAttempts       PuzzleAttempt[]
+  puzzleStats          UserPuzzleStats?
+  chessLessonProgress  ChessLessonProgress[]
+
+  @@index([organizationId])
+  @@index([role])
+  @@index([atsCandidateId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum UserRole {
+  SUPER_ADMIN // Full system + user management
+  ADMIN // Full CMS access
+  FRANCHISEE_OWNER // Customize their org, manage tutors
+  LEAD_TUTOR // Team management + full tutor access
+  TUTOR // Curriculum, teaching/business resources
+  ONBOARDING_TUTOR // Limited until training complete
+}
+
+// Legacy role enum - keeping for migration compatibility
+enum Role {
+  ADMIN
+  EDITOR
+  FRANCHISEE
+}
+
+// ===== CURRICULUM CONTENT =====
+
+model Curriculum {
+  id                 String                         @id @default(cuid())
+  title              String
+  slug               String?                        @unique // URL-friendly identifier
+  description        String?                        @db.Text
+  thumbnail          String?
+  status             Status                         @default(DRAFT)
+  order              Int                            @default(0)
+  wpSourceId         Int?                           @unique // WordPress LearnDash course ID for import tracking
+  createdAt          DateTime                       @default(now())
+  updatedAt          DateTime                       @updatedAt
+  modules            Module[]
+  organizationAccess OrganizationCurriculumAccess[]
+
+  @@map("Course") // Keep table name for migration compatibility
+}
+
+model Module {
+  id           String     @id @default(cuid())
+  curriculumId String     @map("courseId") // Keep column name for migration compatibility
+  title        String
+  description  String?    @db.Text
+  order        Int        @default(0)
+  status       Status     @default(DRAFT)
+  wpSourceId   Int?       @unique // WordPress LearnDash lesson ID (WP lessons map to Modules)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  curriculum   Curriculum @relation(fields: [curriculumId], references: [id], onDelete: Cascade)
+  lessons      Lesson[]
+
+  @@index([curriculumId])
+}
+
+model Lesson {
+  id                  String                  @id @default(cuid())
+  moduleId            String
+  number              Int
+  title               String
+  subtitle            String?
+  thumbnail           String?
+  videoUrl            String?
+  videoDuration       String?
+  status              Status                  @default(DRAFT)
+  order               Int                     @default(0)
+  wpSourceId          Int?                    @unique // WordPress LearnDash topic ID (WP topics map to Lessons)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  module              Module                  @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  developmentalSkills DevelopmentalSkill[]
+  story               StoryContent?
+  chessercises        Json?
+  exercises           Exercise[]
+  printMaterials      PrintMaterial[]
+  // Progress tracking relations
+  userProgress        LessonProgress[]
+  studentProgress     StudentLessonProgress[]
+  classSessions       ClassSession[]
+  currentForClasses   Class[]                 @relation("CurrentLesson")
+  instructorNotes     InstructorNote[]
+
+  @@index([moduleId])
+}
+
+model DevelopmentalSkill {
+  id          String @id @default(cuid())
+  lessonId    String
+  title       String
+  description String @db.Text
+  order       Int    @default(0)
+  lesson      Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model StoryContent {
+  id           String   @id @default(cuid())
+  lessonId     String   @unique
+  introduction String?  @db.Text
+  teacherTip   String?  @db.Text
+  content      Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lesson       Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id           String @id @default(cuid())
+  lessonId     String
+  number       Int
+  title        String
+  instructions String @db.Text
+  boardSetup   Json
+  solution     String @db.Text
+  order        Int    @default(0)
+  lesson       Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+model PrintMaterial {
+  id           String            @id @default(cuid())
+  lessonId     String
+  title        String
+  type         PrintMaterialType
+  pageCount    Int               @default(1)
+  fileUrl      String
+  thumbnailUrl String?
+  order        Int               @default(0)
+  createdAt    DateTime          @default(now())
+  lesson       Lesson            @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([lessonId])
+}
+
+enum PrintMaterialType {
+  EXERCISE_PAGE
+  COLORING_PAGE
+}
+
+// ===== MEDIA LIBRARY =====
+
+model Media {
+  id           String   @id @default(cuid())
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  thumbnailUrl String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+
+  @@index([uploadedById])
+}
+
+enum Status {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// ===== PROGRESS TRACKING =====
+
+model LessonProgress {
+  id           String         @id @default(cuid())
+  userId       String
+  lessonId     String
+  status       ProgressStatus @default(NOT_STARTED)
+  startedAt    DateTime?
+  completedAt  DateTime?
+  lastViewedAt DateTime       @default(now())
+  timeSpent    Int            @default(0) // in seconds
+  notes        String?        @db.Text
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson       Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ===== CLASS MANAGEMENT =====
+
+model Class {
+  id              String         @id @default(cuid())
+  instructorId    String
+  name            String
+  description     String?        @db.Text
+  color           String? // For UI differentiation
+  currentLessonId String? // Current lesson being taught
+  isActive        Boolean        @default(true)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  instructor      User           @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  currentLesson   Lesson?        @relation("CurrentLesson", fields: [currentLessonId], references: [id])
+  students        Student[]
+  sessions        ClassSession[]
+
+  @@index([instructorId])
+}
+
+model Student {
+  id        String                  @id @default(cuid())
+  classId   String
+  firstName String
+  lastName  String?
+  nickname  String? // Some kids prefer nicknames
+  avatar    String? // Fun avatar selection
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  class     Class                   @relation(fields: [classId], references: [id], onDelete: Cascade)
+  progress  StudentLessonProgress[]
+
+  @@index([classId])
+}
+
+model StudentLessonProgress {
+  id          String         @id @default(cuid())
+  studentId   String
+  lessonId    String
+  status      ProgressStatus @default(NOT_STARTED)
+  completedAt DateTime?
+  score       Int? // Optional score for exercises
+  notes       String?        @db.Text // Instructor notes about student
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson      Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, lessonId])
+  @@index([studentId])
+  @@index([lessonId])
+}
+
+model ClassSession {
+  id         String   @id @default(cuid())
+  classId    String
+  lessonId   String
+  date       DateTime
+  duration   Int? // in minutes
+  notes      String?  @db.Text
+  attendance Json? // Array of student IDs who attended
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  class      Class    @relation(fields: [classId], references: [id], onDelete: Cascade)
+  lesson     Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([classId])
+  @@index([lessonId])
+}
+
+// ===== INSTRUCTOR NOTES =====
+
+model InstructorNote {
+  id        String   @id @default(cuid())
+  userId    String
+  lessonId  String
+  content   String   @db.Text
+  isPrivate Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+}
+
+// ===== RESOURCES =====
+
+model Resource {
+  id             String           @id @default(cuid())
+  title          String
+  description    String?          @db.Text
+  category       ResourceCategory
+  type           ResourceType
+  url            String? // External URL (Vimeo, etc.)
+  fileUrl        String? // S3 URL for uploaded files
+  thumbnailUrl   String?
+  content        String?          @db.Text // Published rich text content (visible to all)
+  draftContent   String?          @db.Text // Draft content (only visible to admins)
+  hasDraft       Boolean          @default(false) // True if there are unpublished changes
+  organizationId String? // Null = shared across all orgs
+  visibility     Visibility       @default(ALL_TUTORS)
+  order          Int              @default(0)
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization?    @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([category])
+  @@index([visibility])
+}
+
+enum ResourceCategory {
+  // Teaching Resources (9 categories)
+  VIDEO_LIBRARY
+  MINI_GAMES
+  STORY_ILLUSTRATIONS
+  PRINTABLE_ACTIVITIES
+  SONGS
+  CHESS_RESOURCES
+  BQ_RESOURCES
+  ONLINE_TEACHING
+  BEHAVIOR_MANAGEMENT
+  // Business Resources (5 categories)
+  EMAIL_TEMPLATES
+  FLIER_TEMPLATES
+  REFERRAL_STRATEGIES
+  CLIENT_COMMUNICATION
+  TUTOR_SUPPLIES
+  // Admin Resources (8 categories)
+  ADMIN_TEAM
+  CLUB_LOCATIONS
+  FORMS
+  CHESSPECTATIONS
+  ADMIN_VIDEO_TUTORIALS
+  DEIB_POLICIES
+  LESSON_REPORTS
+  REFERRAL_GUIDELINES
+}
+
+enum ResourceType {
+  VIDEO
+  PDF
+  IMAGE
+  LINK
+  RICH_TEXT
+  TEMPLATE
+  CANVA_DESIGN
+}
+
+enum Visibility {
+  ALL_TUTORS
+  LEAD_TUTORS
+  ADMINS_ONLY
+  FRANCHISEE_OWNERS
+}
+
+// ===== ANNOUNCEMENTS =====
+
+model Announcement {
+  id             String           @id @default(cuid())
+  title          String
+  content        String           @db.Text
+  type           AnnouncementType
+  imageUrl       String?
+  linkUrl        String?
+  linkText       String?
+  organizationId String? // Null = shown to all orgs
+  targetRoles    UserRole[] // Which roles can see this
+  isPinned       Boolean          @default(false)
+  publishDate    DateTime         @default(now())
+  expiresAt      DateTime?
+  isActive       Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization?    @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([type])
+  @@index([publishDate])
+}
+
+enum AnnouncementType {
+  IMPORTANT_DATE
+  ANNOUNCEMENT
+  STORY_SPOTLIGHT
+  TUTOR_REVIEW
+}
+
+// ===== CERTIFICATIONS =====
+
+model Certification {
+  id             String            @id @default(cuid())
+  userId         String
+  type           CertificationType
+  earnedAt       DateTime          @default(now())
+  expiresAt      DateTime?
+  certificateUrl String? // PDF certificate
+  metadata       Json? // Additional certification data
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+}
+
+enum CertificationType {
+  BASIC_TRAINING
+  ADVANCED_TRAINING
+  CHESS_CERTIFICATION
+  BQ_CERTIFICATION
+  BACKGAMMON_CERTIFICATION
+  LEAD_TUTOR_TRAINING
+  FRANCHISE_OWNER_TRAINING
+}
+
+// ===== TUTOR PROFILES (SHARED WITH STC) =====
+// Master record for all tutor information - replaces Monday.com + Google Sheets
+// Both portal and external system connect to this table
+
+model TutorProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // External System IDs
+  tutorCruncherId   Int?    @unique // TutorCruncher contractor ID
+  branchId          String? // Branch payment profile ID
+  chessableUsername String? // Chessable account
+
+  // Personal Info
+  pronouns     String?
+  hireDate     DateTime?
+  activatedAt  DateTime? // When tutor was fully activated
+  terminatedAt DateTime? // When tutor left/was terminated
+
+  // Status & Team
+  status               TutorStatus @default(PENDING)
+  team                 TutorTeam?
+  isSchoolCertified    Boolean     @default(false)
+  isBqCertified        Boolean     @default(false)
+  isPlaygroupCertified Boolean     @default(false)
+
+  // Pay & Skills
+  baseHourlyRate    Decimal? @db.Decimal(10, 2)
+  chessLevel        String? // e.g., "Beginner", "Intermediate", "Advanced"
+  chessRating       Int? // USCF or online rating
+  noctieRating      Int? // Internal rating system
+  chessableProgress Int?     @default(0) // Percentage complete
+
+  // Performance Metrics (synced from STC)
+  totalLessons     Int       @default(0)
+  totalHours       Decimal   @default(0) @db.Decimal(10, 2)
+  averageRating    Decimal?  @db.Decimal(3, 2) // e.g., 4.85
+  lastLessonDate   DateTime?
+  fiveStarCount    Int       @default(0) // Count of 5-star ratings
+  trialConversions Int       @default(0) // Count of trial-to-paid conversions
+
+  // Metadata
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  certifications TutorCertification[]
+  labels         TutorLabel[]
+  notes          TutorNote[]
+  auditLogs      TutorAuditLog[]
+
+  // Gamification
+  streaks        TutorStreak[]
+  milestones     TutorMilestone[]
+
+  // Points system
+  points         TutorPoints?
+  pointsHistory  PointsHistory[]
+
+  // Hiring cohorts
+  cohortMemberships CohortMember[]
+
+  @@index([tutorCruncherId])
+  @@index([status])
+  @@index([team])
+  @@map("tutor_profiles") // Explicit table name for external system compatibility
+}
+
+model TutorCertification {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  type        TutorCertType
+  status      TutorCertStatus @default(PENDING)
+  earnedAt    DateTime?
+  expiresAt   DateTime?
+  verifiedBy  String? // User ID who verified
+  verifiedAt  DateTime?
+  documentUrl String? // Certificate or verification doc
+  notes       String?         @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([tutorProfileId, type])
+  @@index([tutorProfileId])
+  @@index([type])
+  @@index([expiresAt])
+  @@map("tutor_certifications")
+}
+
+model TutorLabel {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  name  String // e.g., "Top Performer", "Needs Follow-up"
+  color String? // Hex color for UI display
+
+  createdAt DateTime @default(now())
+  createdBy String? // User ID who added the label
+
+  @@unique([tutorProfileId, name])
+  @@index([tutorProfileId])
+  @@index([name])
+  @@map("tutor_labels")
+}
+
+model TutorNote {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  content       String        @db.Text
+  type          TutorNoteType @default(GENERAL)
+  isInternal    Boolean       @default(true) // False = visible to tutor
+  createdBy     String // User ID
+  createdByName String? // Denormalized for display
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tutorProfileId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("tutor_notes")
+}
+
+// Audit log for tracking changes to tutor profiles
+model TutorAuditLog {
+  id             String       @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  action        String // e.g., "STATUS_CHANGE", "TEAM_CHANGE", "LABEL_ADDED", "CERTIFICATION_ADDED"
+  field         String? // The field that was changed
+  previousValue String? // Previous value (stringified)
+  newValue      String? // New value (stringified)
+  metadata      Json? // Additional context
+
+  performedBy     String // User ID who made the change
+  performedByName String? // Denormalized for display
+
+  createdAt DateTime @default(now())
+
+  @@index([tutorProfileId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("tutor_audit_logs")
+}
+
+// ===== HIRING COHORTS =====
+
+model HiringCohort {
+  id          String       @id @default(cuid())
+  name        String       @unique // "January 2026", "August 2025 SF"
+  status      CohortStatus @default(UPCOMING)
+  description String?      @db.Text
+  notes       String?      @db.Text
+
+  orientationSessionId String
+  orientationSession   OrientationSession @relation(fields: [orientationSessionId], references: [id])
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members CohortMember[]
+
+  @@index([status])
+  @@index([orientationSessionId])
+  @@map("hiring_cohorts")
+}
+
+model CohortMember {
+  id             String       @id @default(cuid())
+  cohortId       String
+  cohort         HiringCohort @relation(fields: [cohortId], references: [id], onDelete: Cascade)
+  tutorProfileId String
+  tutorProfile   TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+  joinedAt       DateTime     @default(now())
+  notes          String?      @db.Text
+  createdAt      DateTime     @default(now())
+
+  @@unique([cohortId, tutorProfileId])
+  @@index([cohortId])
+  @@index([tutorProfileId])
+  @@map("cohort_members")
+}
+
+// Tutor Status Enum
+enum TutorStatus {
+  PENDING // Not yet activated
+  ACTIVE // Currently active tutor
+  INACTIVE // Temporarily inactive (e.g., on leave)
+  QUIT // Voluntarily left
+  TERMINATED // Was terminated
+}
+
+// Tutor Team Enum (from Monday.com)
+enum TutorTeam {
+  LA // Los Angeles team
+  NYC // New York City team
+  SF // San Francisco team
+  ONLINE // Online tutors
+  WESTSIDE // Westside franchise
+  EASTSIDE // Eastside franchise
+}
+
+// Tutor Certification Type Enum
+enum TutorCertType {
+  SCHOOL_CERTIFIED // Certified for school lessons
+  BQ_CERTIFIED // Birthday party/BQ certified
+  PLAYGROUP_CERTIFIED // Playgroup certified
+  CHESSABLE_COMPLETED // Completed Chessable training
+  BACKGROUND_CHECK // Background check cleared
+  ADVANCED_CHESS // Advanced chess certification
+  LEAD_TUTOR // Lead tutor certification
+}
+
+// Tutor Certification Status Enum
+enum TutorCertStatus {
+  PENDING // Application pending
+  IN_PROGRESS // Working towards certification
+  COMPLETED // Certification complete
+  EXPIRED // Certification expired
+  REVOKED // Certification revoked
+}
+
+// Tutor Note Type Enum
+enum TutorNoteType {
+  GENERAL // General notes
+  PERFORMANCE // Performance-related
+  INCIDENT // Incident report
+  FEEDBACK // Client feedback
+  ADMIN // Administrative notes
+}
+
+// Hiring Cohort Status
+enum CohortStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+}
+
+// ===== CMS PAGES =====
+
+enum PageCategory {
+  TEACHING    // Teaching resource pages
+  BUSINESS    // Business resource pages
+  ADMIN       // Admin resource pages
+  ONBOARDING  // Onboarding pages
+  CUSTOM      // Standalone pages
+}
+
+enum PageStatus {
+  DRAFT
+  PUBLISHED
+  SCHEDULED
+  ARCHIVED
+}
+
+model Page {
+  id              String       @id @default(cuid())
+  title           String
+  slug            String       @unique
+  description     String?      @db.Text
+  featuredImage   String?
+
+  // Categorization & Access
+  pageCategory    PageCategory @default(CUSTOM)
+  organizationId  String?
+  visibility      Visibility   @default(ALL_TUTORS)
+
+  // Hierarchy (for folders)
+  parentId        String?
+  parent          Page?        @relation("PageHierarchy", fields: [parentId], references: [id])
+  children        Page[]       @relation("PageHierarchy")
+  order           Int          @default(0)
+
+  // Publishing
+  status          PageStatus   @default(DRAFT)
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  expiresAt       DateTime?
+
+  // SEO
+  seoTitle        String?
+  noIndex         Boolean      @default(false)
+
+  // Timestamps & Audit
+  createdAt       DateTime     @default(now())
+  createdBy       String?
+  updatedAt       DateTime     @updatedAt
+
+  // Relations
+  organization    Organization? @relation(fields: [organizationId], references: [id])
+  content         PageContent?  @relation(fields: [contentId], references: [id])
+  contentId       String?       @unique
+
+  @@index([slug])
+  @@index([organizationId])
+  @@index([pageCategory])
+  @@index([status])
+}
+
+// ===== CMS PAGE CONTENT =====
+
+model PageContent {
+  id          String        @id @default(cuid())
+  pageType    String // e.g., "resource", "lesson", "module", "course", "announcement"
+  pageId      String // The ID of the related entity
+  blocks      Json // Array of CMS blocks (published content)
+  draftBlocks Json? // Array of CMS blocks (draft/unpublished)
+  hasDraft    Boolean       @default(false)
+  publishedAt DateTime?
+  publishedBy String? // User ID who published
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  versions    PageVersion[]
+  page        Page?         // Back-reference for CMS Page relation
+
+  @@unique([pageType, pageId])
+  @@index([pageType])
+  @@index([pageId])
+}
+
+model PageVersion {
+  id            String      @id @default(cuid())
+  pageContentId String
+  blocks        Json // Snapshot of blocks at this version
+  versionNumber Int
+  createdBy     String // User ID
+  createdAt     DateTime    @default(now())
+  note          String? // Optional version note
+  pageContent   PageContent @relation(fields: [pageContentId], references: [id], onDelete: Cascade)
+
+  @@index([pageContentId])
+  @@index([createdAt])
+}
+
+// ===== EMAIL TEMPLATES =====
+
+model EmailTemplate {
+  id          String            @id @default(cuid())
+  templateKey String            @unique // e.g., "welcome_TUTOR", "welcome_ADMIN", "activation", "reminder"
+  name        String // Human-readable name
+  subject     String // Email subject line
+  roleTitle   String? // Display title for role (e.g., "Tutor", "Lead Tutor")
+  description String            @db.Text // Main body description
+  nextSteps   String[] // Array of next step items
+  nextStepsIntro String? // e.g., "you'll complete our onboarding" vs "you'll have access to"
+  requiresOnboarding Boolean    @default(false)
+  isActive    Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([templateKey])
+}
+
+// ===== ONBOARDING SYSTEM =====
+
+model OnboardingProgress {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Overall status
+  status      OnboardingStatus @default(PENDING)
+  currentStep Int              @default(1)
+
+  // Step completion tracking
+  welcomeCompletedAt    DateTime?
+  videosCompletedAt     DateTime?
+  quizPassedAt          DateTime?
+  profileCompletedAt    DateTime?
+  w9CompletedAt         DateTime?
+  orientationAttendedAt DateTime?
+  trainingCompletedAt   DateTime?
+  shadowCompletedAt     DateTime?
+
+  // Phase-level completion (6-phase onboarding redesign)
+  phase1CompletedAt DateTime? // Welcome & Training Videos
+  phase2CompletedAt DateTime? // Profile & Documents
+  phase3CompletedAt DateTime? // Orientation Debrief
+  phase4CompletedAt DateTime? // Post-Orientation Training
+  phase5CompletedAt DateTime? // Shadow Lessons
+  phase6CompletedAt DateTime? // Ready / Activated
+
+  // Video progress (JSON array of {videoId, percentWatched, completedAt})
+  videoProgress Json @default("[]")
+
+  // Quiz tracking
+  quizScore         Int?
+  quizAttempts      Int       @default(0)
+  quizLastAttemptAt DateTime?
+  quizAnswers       Json? // Store answers for review
+
+  // Training sessions tracking (JSON array of {sessionNumber, completedAt, notes})
+  trainingSessions Json @default("[]")
+
+  // Shadow lessons tracking (JSON array of {lessonNumber, completedAt, verifiedBy, notes})
+  shadowLessons Json @default("[]")
+
+  // Admin tracking
+  adminNotes   String?   @db.Text
+  returnedAt   DateTime?
+  returnReason String?   @db.Text
+  approvedAt   DateTime?
+  approvedBy   String?
+  activatedAt  DateTime?
+  activatedBy  String?
+
+  // Orientation session
+  orientationSessionId String?
+  orientationSession   OrientationSession? @relation(fields: [orientationSessionId], references: [id])
+
+  // Background check status
+  backgroundCheckStatus      String? // pending, clear, review, failed
+  backgroundCheckCompletedAt DateTime?
+
+  // Chess puzzle tracking
+  puzzlesSolved       Int @default(0)
+  puzzlesAttempted    Int @default(0)
+  puzzleBestStreak    Int @default(0)
+  puzzleCurrentRating Int @default(400)
+
+  // ── Admin Checklist: Emails ──
+  certDateEmailSent          Boolean   @default(false)
+  certDateEmailSentAt        DateTime?
+  nextStepsShadowEmailSent   Boolean   @default(false)
+  nextStepsShadowEmailSentAt DateTime?
+  onlineCertEmailSent        Boolean   @default(false)
+  onlineCertEmailSentAt      DateTime?
+  storyTimeEmailSent         Boolean   @default(false)
+  storyTimeEmailSentAt       DateTime?
+
+  // ── Admin Checklist: Milestones ──
+  certificationComplete        Boolean   @default(false)
+  certificationCompletedAt     DateTime?
+  payoutsSetup                 Boolean   @default(false)
+  payoutsSetupAt               DateTime?
+  orientationDebriefComplete   Boolean   @default(false)
+  orientationDebriefAt         DateTime?
+  demoMagicComplete            Boolean   @default(false)
+  demoMagicCompletedAt         DateTime?
+  chessConfidenceComplete      Boolean   @default(false)
+  chessConfidenceCompletedAt   DateTime?
+  teachingInSchoolsComplete    Boolean   @default(false)
+  teachingInSchoolsCompletedAt DateTime?
+  chessableComplete            Boolean   @default(false)
+  chessableCompletedAt         DateTime?
+
+  // ── Admin Checklist: Calls & Observations ──
+  initialCallComplete Boolean   @default(false)
+  initialCallAt       DateTime?
+  initialCallNotes    String?   @db.Text
+  shadow1Complete     Boolean   @default(false)
+  shadow1At           DateTime?
+  shadow2Complete     Boolean   @default(false)
+  shadow2At           DateTime?
+  shadow3Complete     Boolean   @default(false)
+  shadow3At           DateTime?
+  mentorSignUp        Boolean   @default(false)
+
+  // ── Admin Notes Fields (from spreadsheet) ──
+  shadowFeedback         String? @db.Text
+  longTermGoals          String? @db.Text
+  location               String?
+  firstImpressions       String? @db.Text
+  availabilityScheduling String? @db.Text
+  chessLevelNotes        String?
+  month1MentorNotes      String? @db.Text
+
+  // ── Activation Tracking ──
+  googleGroupAdded     Boolean   @default(false)
+  googleGroupAddedAt   DateTime?
+  googleGroupName      String?
+  tutorCruncherCreated Boolean   @default(false)
+  tutorCruncherCreatedAt DateTime?
+  welcomeEmailSent     Boolean   @default(false)
+  welcomeEmailSentAt   DateTime?
+  branchIdGenerated    Boolean   @default(false)
+  branchIdGeneratedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Onboarding certificate
+  certificate OnboardingCertificate?
+
+  // Puzzle attempts
+  puzzleAttempts OnboardingPuzzleAttempt[]
+
+  // Per-video progress (replaces JSON videoProgress field over time)
+  videoPartProgress OnboardingVideoProgress[]
+
+  @@index([status])
+  @@index([orientationSessionId])
+}
+
+// Track each chess puzzle attempt during onboarding
+model OnboardingPuzzleAttempt {
+  id         String   @id @default(cuid())
+  progressId String
+  progress   OnboardingProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+
+  puzzleId  String  // e.g., "easy-1", "med-2"
+  rating    Int     // Puzzle difficulty rating
+  solved    Boolean
+  usedHint  Boolean @default(false)
+  moveCount Int
+  timeMs    Int     // Time spent on attempt
+
+  createdAt DateTime @default(now())
+
+  @@index([progressId])
+  @@index([puzzleId])
+  @@index([createdAt])
+  @@map("onboarding_puzzle_attempts")
+}
+
+// Per-video progress tracking for the 6 orientation videos
+model OnboardingVideoProgress {
+  id               String             @id @default(cuid())
+  progressId       String
+  progress         OnboardingProgress @relation(fields: [progressId], references: [id], onDelete: Cascade)
+  videoPart        Int                // 1-6 (maps to OnboardingVideo.order + 1)
+  videoId          String?            // Reference to OnboardingVideo.id
+  percentWatched   Float              @default(0)
+  videoCompletedAt DateTime?
+  quizScore        Int?
+  quizAttempts     Int                @default(0)
+  quizPassedAt     DateTime?
+  quizAnswers      Json?              // Store answers for review
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@unique([progressId, videoPart])
+  @@index([progressId])
+}
+
+enum OnboardingStatus {
+  PENDING // Waiting for background check / admin approval
+  WELCOME // Viewing welcome page
+  VIDEOS_IN_PROGRESS // Watching orientation videos
+  QUIZ_PENDING // Ready to take quiz
+  QUIZ_FAILED // Failed quiz, can retake
+  PROFILE_PENDING // Needs to complete profile
+  W9_PENDING // Needs to complete W-9
+  AWAITING_ORIENTATION // Ready to register for orientation
+  ORIENTATION_SCHEDULED // Registered for orientation session
+  POST_ORIENTATION_TRAINING // Completing training sessions
+  SHADOW_LESSONS // Completing shadow lessons
+  COMPLETED // All steps done, awaiting activation
+  ACTIVATED // User activated to full TUTOR role
+  RETURNED // Sent back for corrections
+}
+
+model OrientationSession {
+  id              String   @id @default(cuid())
+  title           String
+  description     String?  @db.Text
+  scheduledAt     DateTime
+  duration        Int      @default(90) // Duration in minutes
+  zoomLink        String?
+  zoomMeetingId   String?
+  hostId          String? // User ID of host
+  hostName        String? // Display name of host
+  maxParticipants Int      @default(20)
+  isActive        Boolean  @default(true)
+
+  participants OnboardingProgress[]
+  cohorts      HiringCohort[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scheduledAt])
+  @@index([isActive])
+}
+
+model OnboardingVideo {
+  id           String  @id @default(cuid())
+  title        String
+  description  String? @db.Text
+  vimeoId      String // Vimeo video ID
+  vimeoHash    String? // Privacy hash for unlisted/private videos (e.g., abc123def from vimeo.com/123456/abc123def)
+  duration     Int // Duration in seconds
+  order        Int     @default(0)
+  isRequired   Boolean @default(true)
+  isActive     Boolean @default(true)
+  thumbnailUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+}
+
+model OnboardingQuizQuestion {
+  id            String           @id @default(cuid())
+  question      String           @db.Text
+  type          QuizQuestionType @default(MULTIPLE_CHOICE)
+  options       Json // Array of {id, text} options
+  correctAnswer String // ID of correct option or "true"/"false"
+  explanation   String?          @db.Text
+  order         Int              @default(0)
+  isActive      Boolean          @default(true)
+  category      String? // Optional category for grouping (e.g., "Admin Procedures")
+  videoPart     Int?             // 1-6, associates question with specific orientation video
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([order])
+  @@index([isActive])
+  @@index([category])
+  @@index([videoPart])
+}
+
+enum QuizQuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+// ===== ONBOARDING CONFIGURATION =====
+
+// Key-value settings (video IDs, scores, amounts)
+model OnboardingConfig {
+  id          String          @id @default(cuid())
+  key         String          @unique
+  value       String          @db.Text
+  category    String // welcome, quiz, orientation, general
+  label       String
+  description String?         @db.Text
+  valueType   ConfigValueType @default(STRING)
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([category])
+}
+
+enum ConfigValueType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+// Journey steps (the 6 onboarding phases)
+model OnboardingJourneyStep {
+  id               String  @id @default(cuid())
+  title            String
+  description      String
+  shortDescription String?
+  icon             String // Lucide icon name
+  href             String
+  color            String
+  requiredStatus   String
+  completionField  String
+  badgeType        String?
+  phase            Int     @default(1) // 1-6, which onboarding phase this belongs to
+  order            Int     @default(0)
+  isActive         Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([order])
+  @@index([phase])
+}
+
+// Achievement badges
+model OnboardingBadge {
+  id              String  @id @default(cuid())
+  badgeKey        String  @unique
+  title           String
+  description     String
+  icon            String
+  colorScheme     String // JSON with color, bgColor, borderColor
+  unlockType      String // step_completion, streak, special
+  unlockCondition String? @db.Text
+  order           Int     @default(0)
+  isActive        Boolean @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Users who earned this badge
+  earnedBy        UserBadge[]
+
+  @@index([order])
+}
+
+// Dropdown options (languages, relationships, business types)
+model OnboardingDropdownOption {
+  id        String   @id @default(cuid())
+  fieldKey  String
+  value     String
+  label     String
+  order     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([fieldKey, value])
+  @@index([fieldKey, order])
+}
+
+// Orientation agenda items
+model OnboardingOrientationAgenda {
+  id          String   @id @default(cuid())
+  title       String
+  description String?  @db.Text
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([order])
+}
+
+// ===== GAMIFICATION SYSTEM (Phase 8) =====
+
+// Track which users have earned which badges
+model UserBadge {
+  id        String   @id @default(cuid())
+  userId    String
+  badgeId   String
+  earnedAt  DateTime @default(now())
+  metadata  Json?    // Additional context (e.g., streak count when earned)
+
+  user  User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge OnboardingBadge @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+  @@index([userId])
+  @@index([badgeId])
+  @@index([earnedAt])
+  @@map("user_badges")
+}
+
+// Track user streaks (login, lessons, etc.)
+model TutorStreak {
+  id               String     @id @default(cuid())
+  tutorProfileId   String
+  tutorProfile     TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  type             StreakType
+  currentStreak    Int        @default(0)
+  longestStreak    Int        @default(0)
+  lastActivityDate DateTime?
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@unique([tutorProfileId, type])
+  @@index([tutorProfileId])
+  @@index([type])
+  @@map("tutor_streaks")
+}
+
+enum StreakType {
+  LOGIN           // Daily login streak
+  LESSONS_WEEKLY  // Weekly lesson streak (X+ lessons per week)
+  LESSONS_DAILY   // Daily lesson streak
+  PUZZLES_DAILY   // Daily puzzle streak
+}
+
+// Track milestone achievements
+model TutorMilestone {
+  id             String        @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile  @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  type           MilestoneType
+  value          Int           // The value achieved (e.g., 100 for 100 lessons)
+  achievedAt     DateTime      @default(now())
+  metadata       Json?         // Additional context
+
+  @@unique([tutorProfileId, type, value])
+  @@index([tutorProfileId])
+  @@index([type])
+  @@index([achievedAt])
+  @@map("tutor_milestones")
+}
+
+enum MilestoneType {
+  TOTAL_LESSONS       // Total lessons taught (10, 50, 100, 250, 500, 1000)
+  WEEKLY_LESSONS      // Lessons in a week (10, 15, 20, 25)
+  TRIAL_CONVERSIONS   // Trial to paid conversions
+  CLIENT_RETENTION    // Clients retained 5+ lessons
+  FIVE_STAR_RATINGS   // Number of 5-star ratings
+  TRAINING_COMPLETED  // Training courses completed
+  PUZZLES_SOLVED      // Chess puzzles solved (10, 50, 100, 500, 1000)
+}
+
+// ===== LMS TRAINING COURSES =====
+
+model TrainingCourse {
+  id                  String              @id @default(cuid())
+  title               String
+  slug                String              @unique
+  description         String?             @db.Text
+  thumbnailUrl        String?
+  duration            Int?                // Estimated duration in minutes
+  difficulty          CourseDifficulty    @default(BEGINNER)
+  category            CourseCategory
+  isRequired          Boolean             @default(false)
+  isPublished         Boolean             @default(false)
+  order               Int                 @default(0)
+  prerequisites       String[]            // Array of course slugs
+  grantsCertification TutorCertType?      // Completing this course grants this certification
+  maxQuizRetakes      Int                 @default(3) // Max retakes per quiz
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  publishedAt     DateTime?
+
+  // Relations
+  modules             TrainingModule[]
+  enrollments         CourseEnrollment[]
+  learningPathCourses LearningPathCourse[]
+  reviews             CourseReview[]
+  forumPosts          ForumPost[]
+  certificates        CourseCertificate[]
+
+  @@index([category])
+  @@index([isPublished])
+  @@index([order])
+  @@map("training_courses")
+}
+
+model TrainingModule {
+  id              String              @id @default(cuid())
+  courseId        String
+  course          TrainingCourse      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title           String
+  description     String?             @db.Text
+  order           Int                 @default(0)
+
+  // Content
+  contentType     ModuleContentType   @default(VIDEO)
+  videoUrl        String?             // Vimeo URL
+  content         String?             @db.Text // Rich text content
+  resourceUrls    String[]            // PDFs, attachments
+
+  // Quiz (optional)
+  hasQuiz         Boolean             @default(false)
+  quizQuestions   Json?               // Array of quiz questions
+  passingScore    Int?                @default(80)
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relations
+  progress        ModuleProgress[]
+  transcript      VideoTranscript?
+
+  @@index([courseId])
+  @@index([order])
+  @@map("training_modules")
+}
+
+model CourseEnrollment {
+  id              String              @id @default(cuid())
+  userId          String
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId        String
+  course          TrainingCourse      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  status          EnrollmentStatus    @default(NOT_STARTED)
+  progress        Int                 @default(0) // 0-100 percentage
+  startedAt       DateTime?
+  completedAt     DateTime?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  // Relations
+  moduleProgress  ModuleProgress[]
+  certificate     CourseCertificate?
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+  @@index([status])
+  @@map("course_enrollments")
+}
+
+model ModuleProgress {
+  id              String              @id @default(cuid())
+  enrollmentId    String
+  enrollment      CourseEnrollment    @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId        String
+  module          TrainingModule      @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  status          ProgressStatus      @default(NOT_STARTED)
+  videoProgress   Int                 @default(0) // Seconds watched
+  videoDuration   Int?                // Total video duration in seconds
+  lastVideoPosition Int               @default(0) // Resume position in seconds
+  quizScore       Int?                // If module has quiz
+  quizAttempts    Int                 @default(0)
+  notes           String?             @db.Text // User notes for this module
+  completedAt     DateTime?
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([enrollmentId, moduleId])
+  @@index([enrollmentId])
+  @@index([moduleId])
+  @@map("module_progress")
+}
+
+enum CourseDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum CourseCategory {
+  ONBOARDING        // Required for new tutors
+  TEACHING_SKILLS   // General teaching improvement
+  CHESS_SKILLS      // Chess knowledge
+  BUSINESS          // Business development
+  LEADERSHIP        // For lead tutors
+  CERTIFICATION     // Required for specific certifications
+}
+
+enum ModuleContentType {
+  VIDEO
+  ARTICLE
+  QUIZ
+  MIXED
+  CANVA
+  CHESS_PUZZLE
+  CHESS_LESSON
+}
+
+enum EnrollmentStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ===== LEARNING PATHS =====
+
+model LearningPath {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  description String?  @db.Text
+  targetRole  UserRole? // Recommended for this role
+  isRequired  Boolean  @default(false)
+  isPublished Boolean  @default(false)
+  order       Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  courses LearningPathCourse[]
+
+  @@index([targetRole])
+  @@index([isPublished])
+  @@map("learning_paths")
+}
+
+model LearningPathCourse {
+  id             String         @id @default(cuid())
+  learningPathId String
+  learningPath   LearningPath   @relation(fields: [learningPathId], references: [id], onDelete: Cascade)
+  courseId       String
+  course         TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  order      Int     @default(0)
+  isRequired Boolean @default(true) // Is this course required to complete the path?
+
+  createdAt DateTime @default(now())
+
+  @@unique([learningPathId, courseId])
+  @@index([learningPathId])
+  @@index([courseId])
+  @@map("learning_path_courses")
+}
+
+// ===== ENGAGEMENT ALERTS =====
+
+model EngagementAlert {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       AlertType
+  status     AlertStatus @default(ACTIVE)
+  severity   AlertSeverity @default(MEDIUM)
+  title      String
+  message    String    @db.Text
+  metadata   Json?     // Additional context (e.g., days inactive, cert expiry date)
+
+  triggeredAt DateTime @default(now())
+  viewedAt    DateTime?
+  resolvedAt  DateTime?
+  resolvedBy  String?  // User ID who resolved
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([status])
+  @@index([severity])
+  @@map("engagement_alerts")
+}
+
+enum AlertType {
+  INACTIVE_TUTOR        // No login in X days
+  DECLINING_PERFORMANCE // Performance metrics dropping
+  EXPIRING_CERTIFICATION // Certification expires soon
+  ONBOARDING_STALLED    // Onboarding not progressing
+  LOW_RATING            // Average rating below threshold
+  MISSING_INFORMATION   // Required profile info missing
+}
+
+enum AlertStatus {
+  ACTIVE     // Alert is current and needs attention
+  VIEWED     // Alert has been seen by admin
+  RESOLVED   // Alert has been addressed
+  DISMISSED  // Alert was dismissed without action
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ===== SCHEDULED EXPORTS =====
+
+model ScheduledExport {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+
+  // What to export
+  exportType  ExportType
+  filters     Json?    // Filter criteria (status, team, date range, etc.)
+  columns     String[] // Which columns to include
+
+  // Schedule (cron-like)
+  frequency   ExportFrequency
+  dayOfWeek   Int?     // 0-6 for weekly exports
+  dayOfMonth  Int?     // 1-31 for monthly exports
+  timeOfDay   String   @default("09:00") // HH:MM format
+
+  // Recipients
+  recipients  String[] // Email addresses
+
+  // Status
+  isActive    Boolean  @default(true)
+  lastRunAt   DateTime?
+  nextRunAt   DateTime?
+
+  createdBy   String   // User ID who created
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([exportType])
+  @@index([isActive])
+  @@index([nextRunAt])
+  @@map("scheduled_exports")
+}
+
+model ExportHistory {
+  id               String   @id @default(cuid())
+  scheduledExportId String?
+
+  exportType  ExportType
+  fileName    String
+  fileUrl     String?   // S3 URL if stored
+  fileSize    Int?      // Bytes
+  rowCount    Int?
+
+  status      ExportStatus @default(PENDING)
+  error       String?      @db.Text
+
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+
+  createdBy   String?  // User ID (null if scheduled)
+  createdAt   DateTime @default(now())
+
+  @@index([scheduledExportId])
+  @@index([exportType])
+  @@index([status])
+  @@map("export_history")
+}
+
+enum ExportType {
+  TUTORS          // Tutor list
+  LESSONS         // Lesson data
+  ENROLLMENTS     // Course enrollments
+  BADGES          // Badge awards
+  ANALYTICS       // Analytics summary
+}
+
+enum ExportFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ===== NOTIFICATIONS =====
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      NotificationType
+  title     String
+  message   String?          @db.Text
+  link      String?          // URL to navigate to when clicked
+  isRead    Boolean          @default(false)
+  metadata  Json?            // Additional context (badgeId, courseId, etc.)
+
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  BADGE_EARNED        // Earned a new badge
+  MILESTONE_REACHED   // Reached a milestone
+  COURSE_COMPLETED    // Completed a training course
+  PATH_COMPLETED      // Completed a learning path
+  ANNOUNCEMENT        // New announcement posted
+  SYSTEM              // System notification
+  ENGAGEMENT_ALERT    // Admin engagement alert
+  CERTIFICATION       // Certification status change
+  SESSION_REMINDER    // Live session reminder
+  POINTS_MILESTONE    // Points milestone reached
+  LEADERBOARD_CHANGE  // Leaderboard position changed
+  PUZZLE_MILESTONE    // Chess puzzle milestone reached
+}
+
+// ===== POINTS SYSTEM =====
+
+model TutorPoints {
+  id               String       @id @default(cuid())
+  tutorProfileId   String       @unique
+  tutorProfile     TutorProfile @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  totalPoints      Int          @default(0)
+  monthlyPoints    Int          @default(0)
+  weeklyPoints     Int          @default(0)
+
+  // Breakdown by category
+  coursePoints     Int          @default(0)
+  lessonPoints     Int          @default(0)  // From STC teaching
+  streakPoints     Int          @default(0)
+  achievementPoints Int         @default(0)
+  qualityPoints    Int          @default(0)  // Reviews, conversions
+  engagementPoints Int          @default(0)  // Live sessions, logins
+
+  lastCalculatedAt DateTime     @default(now())
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([totalPoints])
+  @@index([monthlyPoints])
+  @@map("tutor_points")
+}
+
+model PointsRule {
+  id          String         @id @default(cuid())
+  name        String         // e.g., "Monthly Lessons 40+"
+  description String?        @db.Text
+  category    PointsCategory
+  trigger     String         // e.g., "lessons_monthly_40", "trial_conversion", "course_complete"
+  points      Int            // Admin-configurable value
+  isActive    Boolean        @default(true)
+  threshold   Int?           // e.g., 40 for "40+ lessons"
+  multiplier  Float?         // e.g., 1.5x for exceptional performance
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([trigger])
+  @@index([category])
+  @@index([isActive])
+  @@map("points_rules")
+}
+
+enum PointsCategory {
+  TEACHING    // Lessons taught, hours worked
+  QUALITY     // 5-star reviews, client retention, trial conversions
+  LEARNING    // Course completion, quiz passes, certifications
+  ENGAGEMENT  // Login streaks, live session attendance
+  BUSINESS    // Referrals, new client conversions
+}
+
+model PointsHistory {
+  id             String         @id @default(cuid())
+  tutorProfileId String
+  tutorProfile   TutorProfile   @relation(fields: [tutorProfileId], references: [id], onDelete: Cascade)
+
+  points         Int            // Points earned (can be negative for deductions)
+  reason         String         // Description of why points were awarded
+  category       PointsCategory
+  ruleId         String?        // Reference to the rule that awarded points
+  metadata       Json?          // Additional context
+
+  createdAt      DateTime       @default(now())
+
+  @@index([tutorProfileId])
+  @@index([category])
+  @@index([createdAt])
+  @@map("points_history")
+}
+
+// ===== LIVE SESSIONS (ZOOM) =====
+
+model LiveSession {
+  id              String              @id @default(cuid())
+  title           String
+  description     String?             @db.Text
+  hostId          String              // User ID of host
+  hostName        String?             // Denormalized for display
+  zoomMeetingId   String?
+  zoomJoinUrl     String?
+  zoomStartUrl    String?
+  scheduledAt     DateTime
+  duration        Int                 @default(60) // Duration in minutes
+  maxParticipants Int                 @default(100)
+  category        LiveSessionCategory
+  isActive        Boolean             @default(true)
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  registrations   LiveSessionRegistration[]
+  attendance      LiveSessionAttendance[]
+
+  @@index([scheduledAt])
+  @@index([isActive])
+  @@index([hostId])
+  @@map("live_sessions")
+}
+
+enum LiveSessionCategory {
+  TRAINING
+  Q_AND_A
+  WORKSHOP
+  OFFICE_HOURS
+  SPECIAL_EVENT
+}
+
+model LiveSessionRegistration {
+  id           String      @id @default(cuid())
+  sessionId    String
+  session      LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId       String
+  registeredAt DateTime    @default(now())
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+  @@map("live_session_registrations")
+}
+
+model LiveSessionAttendance {
+  id              String      @id @default(cuid())
+  sessionId       String
+  session         LiveSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  userId          String
+  joinedAt        DateTime
+  leftAt          DateTime?
+  durationMinutes Int?        // Calculated when leftAt is set
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+  @@map("live_session_attendance")
+}
+
+// ===== DISCUSSION FORUMS =====
+
+model ForumCategory {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  posts       ForumPost[]
+
+  @@map("forum_categories")
+}
+
+model ForumPost {
+  id         String          @id @default(cuid())
+  title      String
+  content    String          @db.Text
+  authorId   String
+  author     User            @relation(fields: [authorId], references: [id])
+  categoryId String
+  category   ForumCategory   @relation(fields: [categoryId], references: [id])
+  courseId   String?
+  course     TrainingCourse? @relation(fields: [courseId], references: [id])
+  isPinned   Boolean         @default(false)
+  isLocked   Boolean         @default(false)
+  viewCount  Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  replies    ForumReply[]
+  reactions  ForumReaction[]
+
+  @@index([categoryId])
+  @@index([courseId])
+  @@map("forum_posts")
+}
+
+model ForumReply {
+  id        String          @id @default(cuid())
+  content   String          @db.Text
+  authorId  String
+  author    User            @relation(fields: [authorId], references: [id])
+  postId    String
+  post      ForumPost       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    ForumReply?     @relation("ReplyToReply", fields: [parentId], references: [id])
+  children  ForumReply[]    @relation("ReplyToReply")
+  isAnswer  Boolean         @default(false)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  reactions ForumReaction[]
+
+  @@index([postId])
+  @@map("forum_replies")
+}
+
+model ForumReaction {
+  id        String       @id @default(cuid())
+  type      ReactionType
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  postId    String?
+  post      ForumPost?   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  replyId   String?
+  reply     ForumReply?  @relation(fields: [replyId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([userId, postId])
+  @@unique([userId, replyId])
+  @@map("forum_reactions")
+}
+
+enum ReactionType {
+  LIKE
+  HELPFUL
+  INSIGHTFUL
+}
+
+// ===== COURSE REVIEWS =====
+
+model CourseReview {
+  id        String         @id @default(cuid())
+  courseId  String
+  course    TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  rating    Int
+  title     String?
+  content   String?        @db.Text
+  isPublic  Boolean        @default(true)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@unique([courseId, userId])
+  @@index([courseId])
+  @@map("course_reviews")
+}
+
+// ===== GOAL SETTING =====
+
+model GoalTemplate {
+  id            String       @id @default(cuid())
+  name          String
+  description   String?
+  category      GoalCategory
+  metricType    String
+  defaultTarget Int
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  goals         TutorGoal[]
+
+  @@map("goal_templates")
+}
+
+model TutorGoal {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id])
+  templateId   String?
+  template     GoalTemplate? @relation(fields: [templateId], references: [id])
+  name         String
+  description  String?
+  category     GoalCategory
+  targetValue  Int
+  currentValue Int           @default(0)
+  startDate    DateTime
+  endDate      DateTime
+  status       GoalStatus    @default(IN_PROGRESS)
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@map("tutor_goals")
+}
+
+enum GoalCategory {
+  TEACHING
+  LEARNING
+  ENGAGEMENT
+  PERFORMANCE
+}
+
+enum GoalStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// ===== VIDEO TRANSCRIPTS =====
+
+model VideoTranscript {
+  id        String         @id @default(cuid())
+  moduleId  String         @unique
+  module    TrainingModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  content   String         @db.Text
+  segments  Json?
+  language  String         @default("en")
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@map("video_transcripts")
+}
+
+// ===== PUSH NOTIFICATIONS =====
+
+model PushSubscription {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String   @db.Text
+  p256dh     String
+  auth       String
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  lastUsedAt DateTime @default(now())
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// ===== COURSE CERTIFICATES =====
+
+model CourseCertificate {
+  id                String           @id @default(cuid())
+  userId            String
+  user              User             @relation(fields: [userId], references: [id])
+  courseId          String
+  course            TrainingCourse   @relation(fields: [courseId], references: [id])
+  enrollmentId      String           @unique
+  enrollment        CourseEnrollment @relation(fields: [enrollmentId], references: [id])
+  certificateNumber String           @unique
+  issuedAt          DateTime         @default(now())
+  pdfUrl            String?
+
+  @@unique([userId, courseId])
+  @@index([certificateNumber])
+  @@map("course_certificates")
+}
+
+model OnboardingCertificate {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  progressId        String             @unique
+  progress          OnboardingProgress @relation(fields: [progressId], references: [id])
+  certificateNumber String             @unique
+  tutorName         String
+  issuedAt          DateTime           @default(now())
+  pdfUrl            String?
+
+  @@index([certificateNumber])
+  @@map("onboarding_certificates")
+}
+
+// ===== STC SYNC LOGGING =====
+
+model STCSyncLog {
+  id                 String    @id @default(cuid())
+  syncType           String
+  status             String
+  contractorsFound   Int       @default(0)
+  contractorsCreated Int       @default(0)
+  contractorsUpdated Int       @default(0)
+  errors             Json?
+  startedAt          DateTime  @default(now())
+  completedAt        DateTime?
+
+  @@index([syncType])
+  @@index([startedAt])
+  @@map("stc_sync_logs")
+}
+
+// ===== EXTERNAL INTEGRATIONS =====
+
+model CanvaConnection {
+  id           String   @id @default(cuid())
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiresAt    DateTime
+  scope        String
+  connectedBy  String // User ID who connected
+  displayName  String? // Canva user display name
+  canvaUserId  String? // Canva user ID
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("canva_connections")
+}
+
+// ===== CHESS PUZZLES & LEARNING =====
+
+model ChessPuzzle {
+  id          String   @id @default(cuid())
+  lichessId   String?  @unique // Lichess puzzle ID for deduplication
+  fen         String   // Starting FEN position
+  moves       String   // UCI move sequence (space-separated, e.g., "e2e4 d7d5 e4d5")
+  rating      Int      // Puzzle difficulty rating
+  themes      String[] // e.g., ["fork", "middlegame", "short"]
+  openingTags String[] // e.g., ["Sicilian_Defense"]
+  popularity  Int      @default(0) // Lichess popularity score
+  nbPlays     Int      @default(0) // Number of times played on Lichess
+  isActive    Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  attempts PuzzleAttempt[]
+
+  @@index([rating])
+  @@index([isActive])
+  @@index([themes])
+  @@map("chess_puzzles")
+}
+
+model PuzzleAttempt {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  puzzleId    String
+  puzzle      ChessPuzzle @relation(fields: [puzzleId], references: [id], onDelete: Cascade)
+
+  solved      Boolean
+  usedHint    Boolean     @default(false)
+  moveCount   Int         @default(0)
+  timeSpentMs Int         @default(0) // Milliseconds to solve
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([puzzleId])
+  @@index([userId, puzzleId])
+  @@index([createdAt])
+  @@map("puzzle_attempts")
+}
+
+model UserPuzzleStats {
+  id            String @id @default(cuid())
+  userId        String @unique
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  puzzleRating  Int    @default(1200) // Elo-style rating
+  puzzlesSolved Int    @default(0)
+  puzzlesFailed Int    @default(0)
+  currentStreak Int    @default(0) // Consecutive days with a puzzle solved
+  bestStreak    Int    @default(0)
+  totalTimeMs   Int    @default(0) // Total time spent on puzzles
+  hintsUsed     Int    @default(0)
+  themeProgress Json   @default("{}") // e.g., {"fork": {"solved": 5, "failed": 2}, ...}
+
+  lastPuzzleAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([puzzleRating])
+  @@index([puzzlesSolved])
+  @@map("user_puzzle_stats")
+}
+
+model ChessLessonCategory {
+  id      String @id @default(cuid())
+  name    String // e.g., "Chess Pieces", "Fundamentals"
+  slug    String @unique
+  color   String // Hex color for UI theming
+  order   Int    @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons ChessLesson[]
+
+  @@index([order])
+  @@map("chess_lesson_categories")
+}
+
+model ChessLesson {
+  id          String              @id @default(cuid())
+  categoryId  String
+  category    ChessLessonCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  title       String   // e.g., "The Pawn"
+  subtitle    String?  // e.g., "Learn how pawns move and capture"
+  iconEmoji   String?  // e.g., "♟"
+  order       Int      @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  levels   ChessLessonLevel[]
+  progress ChessLessonProgress[]
+
+  @@index([categoryId])
+  @@index([order])
+  @@map("chess_lessons")
+}
+
+enum LevelGoalType {
+  CAPTURE_TARGETS  // Capture specific pieces on target squares
+  REACH_SQUARE     // Move a piece to a target square
+  CHECKMATE        // Deliver checkmate
+  AVOID_CAPTURE    // Move without being captured
+  SEQUENCE         // Execute a specific sequence of moves
+  CUSTOM           // Custom validation logic
+}
+
+model ChessLessonLevel {
+  id        String        @id @default(cuid())
+  lessonId  String
+  lesson    ChessLesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  order         Int           @default(0)
+  fen           String        // Starting position
+  goal          String        // Human-readable goal text, e.g., "Capture the black bishop"
+  goalType      LevelGoalType
+  targetSquares String[]      // Squares relevant to the goal (e.g., ["d5", "f7"])
+  playerColor   String        @default("white") // "white" or "black"
+  hintText      String?       // Optional hint
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([lessonId])
+  @@index([order])
+  @@map("chess_lesson_levels")
+}
+
+model ChessLessonProgress {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId  String
+  lesson    ChessLesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  completedLevels Int     @default(0)
+  totalLevels     Int     @default(0)
+  isComplete      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
+  @@map("chess_lesson_progress")
+}
