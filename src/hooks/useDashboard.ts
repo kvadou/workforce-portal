@@ -121,7 +121,7 @@ export interface DashboardData {
   leaderboardRank: number;
   topTutors: TopTutor[];
 
-  // Career Stats from STC
+  // Career Stats from Acme
   careerStats: CareerStats;
 
   // Continue Learning

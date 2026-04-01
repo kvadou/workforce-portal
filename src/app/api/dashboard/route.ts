@@ -3,7 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getTutorPoints, getLeaderboard, getTutorRank } from "@/lib/points-engine";
-import { getTutorMetrics, isSTCDatabaseConfigured } from "@/lib/stc-database";
+import { getTutorMetrics, isAcmeDatabaseConfigured } from "@/lib/acme-database";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +149,7 @@ export async function GET() {
       topTutors = await getLeaderboard({ limit: 10, period: "monthly" });
     }
 
-    // Get STC career stats if configured
+    // Get Acme career stats if configured
     let careerStats = {
       lessonsTotal: tutorProfile?.totalLessons || 0,
       lessonsThisMonth: 0,
@@ -158,15 +158,15 @@ export async function GET() {
       fiveStarCount: tutorProfile?.fiveStarCount || 0,
     };
 
-    // If STC database is configured and we have a TutorCruncher ID, fetch live data
-    if (isSTCDatabaseConfigured() && tutorProfile?.tutorCruncherId) {
-      const stcMetrics = await getTutorMetrics(tutorProfile.tutorCruncherId);
+    // If Acme database is configured and we have a TutorCruncher ID, fetch live data
+    if (isAcmeDatabaseConfigured() && tutorProfile?.tutorCruncherId) {
+      const acmeMetrics = await getTutorMetrics(tutorProfile.tutorCruncherId);
       careerStats = {
-        lessonsTotal: stcMetrics.totalLessons,
-        lessonsThisMonth: stcMetrics.lessonsThisMonth,
-        hoursTotal: stcMetrics.totalHours,
-        averageRating: stcMetrics.averageRating || null,
-        fiveStarCount: stcMetrics.fiveStarCount,
+        lessonsTotal: acmeMetrics.totalLessons,
+        lessonsThisMonth: acmeMetrics.lessonsThisMonth,
+        hoursTotal: acmeMetrics.totalHours,
+        averageRating: acmeMetrics.averageRating || null,
+        fiveStarCount: acmeMetrics.fiveStarCount,
       };
     }
 
@@ -228,7 +228,7 @@ export async function GET() {
         points: t.points,
       })),
 
-      // Career stats from STC
+      // Career stats from Acme
       careerStats,
 
       // Continue learning (in-progress courses with points)

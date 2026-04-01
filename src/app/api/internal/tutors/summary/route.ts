@@ -4,7 +4,7 @@ import { verifyInternalApiRequest } from "@/lib/internal-auth";
 
 /**
  * GET /api/internal/tutors/summary
- * Get aggregate tutor statistics for STC dashboards
+ * Get aggregate tutor statistics for Acme dashboards
  *
  * Returns summary grouped by team and status
  */

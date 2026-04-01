@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { syncContractorsFromSTC } from "@/lib/stc-sync";
+import { syncContractorsFromAcme } from "@/lib/acme-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +20,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    console.log("[STC Sync] Starting contractor sync...");
-    const result = await syncContractorsFromSTC();
-    console.log("[STC Sync] Sync completed:", result);
+    console.log("[Acme Sync] Starting contractor sync...");
+    const result = await syncContractorsFromAcme();
+    console.log("[Acme Sync] Sync completed:", result);
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("[STC Sync] Failed:", error);
+    console.error("[Acme Sync] Failed:", error);
     return NextResponse.json(
       { error: "Sync failed", details: error instanceof Error ? error.message : "Unknown error" },
       { status: 500 }
@@ -39,7 +39,7 @@ export async function GET() {
   return NextResponse.json({
     endpoint: "/api/cron/sync-contractors",
     method: "POST",
-    description: "Sync approved contractors from STC database",
+    description: "Sync approved contractors from Acme database",
     authentication: "Bearer token (CRON_SECRET or INTERNAL_API_SECRET)",
   });
 }

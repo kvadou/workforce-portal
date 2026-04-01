@@ -10,7 +10,7 @@ const CHECKLIST_FIELDS: Record<string, string | null> = {
   certDateEmailSent: "certDateEmailSentAt",
   nextStepsShadowEmailSent: "nextStepsShadowEmailSentAt",
   onlineCertEmailSent: "onlineCertEmailSentAt",
-  storyTimeEmailSent: "storyTimeEmailSentAt",
+  welcomeEmailSent: "welcomeEmailSentAt",
   // Milestones
   certificationComplete: "certificationCompletedAt",
   payoutsSetup: "payoutsSetupAt",

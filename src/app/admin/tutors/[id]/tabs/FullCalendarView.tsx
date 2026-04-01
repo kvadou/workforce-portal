@@ -47,50 +47,50 @@ export default function FullCalendarView({ appointments }: FullCalendarViewProps
 
   return (
     <div className="bg-white rounded-xl border border-neutral-200 shadow-sm overflow-hidden">
-      <div className="p-4 fc-stc-wrapper">
+      <div className="p-4 fc-acme-wrapper">
         <style>{`
-          .fc-stc-wrapper .fc {
+          .fc-acme-wrapper .fc {
             font-family: var(--font-poppins), 'Poppins', sans-serif;
             font-size: 13px;
           }
-          .fc-stc-wrapper .fc .fc-toolbar-title {
+          .fc-acme-wrapper .fc .fc-toolbar-title {
             font-size: 1rem;
             font-weight: 600;
           }
-          .fc-stc-wrapper .fc .fc-button {
+          .fc-acme-wrapper .fc .fc-button {
             font-size: 0.75rem;
             padding: 4px 10px;
             border-radius: 8px;
             font-weight: 500;
           }
-          .fc-stc-wrapper .fc .fc-button-primary {
+          .fc-acme-wrapper .fc .fc-button-primary {
             background-color: #f3f4f6;
             border-color: #e5e7eb;
             color: #374151;
           }
-          .fc-stc-wrapper .fc .fc-button-primary:hover {
+          .fc-acme-wrapper .fc .fc-button-primary:hover {
             background-color: #e5e7eb;
             border-color: #d1d5db;
             color: #111827;
           }
-          .fc-stc-wrapper .fc .fc-button-primary.fc-button-active,
-          .fc-stc-wrapper .fc .fc-button-primary:active {
+          .fc-acme-wrapper .fc .fc-button-primary.fc-button-active,
+          .fc-acme-wrapper .fc .fc-button-primary:active {
             background-color: #7c5cfc;
             border-color: #7c5cfc;
             color: white;
           }
-          .fc-stc-wrapper .fc .fc-today-button {
+          .fc-acme-wrapper .fc .fc-today-button {
             background-color: white;
             border-color: #c4b5fd;
             color: #7c5cfc;
           }
-          .fc-stc-wrapper .fc .fc-today-button:hover {
+          .fc-acme-wrapper .fc .fc-today-button:hover {
             background-color: #f5f3ff;
           }
-          .fc-stc-wrapper .fc .fc-today-button:disabled {
+          .fc-acme-wrapper .fc .fc-today-button:disabled {
             opacity: 0.4;
           }
-          .fc-stc-wrapper .fc .fc-col-header-cell {
+          .fc-acme-wrapper .fc .fc-col-header-cell {
             padding: 8px 0;
             font-weight: 500;
             color: #6b7280;
@@ -98,15 +98,15 @@ export default function FullCalendarView({ appointments }: FullCalendarViewProps
             text-transform: uppercase;
             letter-spacing: 0.05em;
           }
-          .fc-stc-wrapper .fc .fc-daygrid-day-number {
+          .fc-acme-wrapper .fc .fc-daygrid-day-number {
             font-size: 0.75rem;
             color: #6b7280;
             padding: 4px 8px;
           }
-          .fc-stc-wrapper .fc .fc-day-today {
+          .fc-acme-wrapper .fc .fc-day-today {
             background-color: #f5f3ff !important;
           }
-          .fc-stc-wrapper .fc .fc-day-today .fc-daygrid-day-number {
+          .fc-acme-wrapper .fc .fc-day-today .fc-daygrid-day-number {
             background-color: #7c5cfc;
             color: white;
             border-radius: 9999px;
@@ -116,19 +116,19 @@ export default function FullCalendarView({ appointments }: FullCalendarViewProps
             align-items: center;
             justify-content: center;
           }
-          .fc-stc-wrapper .fc .fc-event {
+          .fc-acme-wrapper .fc .fc-event {
             border-radius: 4px;
             font-size: 0.7rem;
             padding: 1px 4px;
             cursor: pointer;
           }
-          .fc-stc-wrapper .fc .fc-daygrid-event-dot {
+          .fc-acme-wrapper .fc .fc-daygrid-event-dot {
             display: none;
           }
-          .fc-stc-wrapper .fc td, .fc-stc-wrapper .fc th {
+          .fc-acme-wrapper .fc td, .fc-acme-wrapper .fc th {
             border-color: #f3f4f6;
           }
-          .fc-stc-wrapper .fc .fc-scrollgrid {
+          .fc-acme-wrapper .fc .fc-scrollgrid {
             border-color: #e5e7eb;
           }
         `}</style>

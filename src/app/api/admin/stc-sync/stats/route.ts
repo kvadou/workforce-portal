@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { getSyncStats } from "@/lib/stc-sync";
+import { getSyncStats } from "@/lib/acme-sync";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/admin/stc-sync/stats - Get sync statistics
+// GET /api/admin/acme-sync/stats - Get sync statistics
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);

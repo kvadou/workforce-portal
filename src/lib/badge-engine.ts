@@ -318,8 +318,8 @@ export async function checkStreakBadges(
 }
 
 /**
- * Process a lesson completion event from STC
- * This should be called when STC reports a completed lesson
+ * Process a lesson completion event from Acme
+ * This should be called when Acme reports a completed lesson
  */
 export async function processLessonCompletion(
   tutorProfileId: string,
@@ -395,7 +395,7 @@ export async function processLessonCompletion(
 
 /**
  * Check and award milestones after a lesson completion
- * Called by STC webhook when a lesson is completed
+ * Called by Acme webhook when a lesson is completed
  */
 export async function checkAndAwardMilestones(
   userId: string,

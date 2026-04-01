@@ -4,7 +4,7 @@ import { verifyInternalApiRequest } from "@/lib/internal-auth";
 
 /**
  * POST /api/internal/lessons/completion
- * Called by STC when a lesson is completed
+ * Called by Acme when a lesson is completed
  * Requires INTERNAL_API_SECRET header
  */
 export async function POST(req: NextRequest) {

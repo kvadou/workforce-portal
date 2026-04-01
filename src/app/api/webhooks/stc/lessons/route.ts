@@ -5,13 +5,13 @@ import { verifyInternalApiRequest } from "@/lib/internal-auth";
 
 /**
  * POST /api/webhooks/stc/lessons
- * Webhook endpoint for lesson completion events from STC
+ * Webhook endpoint for lesson completion events from Acme
  *
  * Expected payload:
  * {
  *   event: "lesson_completed",
  *   tutorId: string,        // TutorCruncher ID or email
- *   lessonId: string,       // STC lesson ID
+ *   lessonId: string,       // Acme lesson ID
  *   lessonDate: string,     // ISO date
  *   duration: number,       // Duration in minutes
  *   rating?: number,        // Client rating (1-5)

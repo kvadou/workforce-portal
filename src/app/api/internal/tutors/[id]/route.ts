@@ -110,7 +110,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Transform to STC-compatible format
+    // Transform to Acme-compatible format
     const response = {
       id: tutor.id,
       tutorCruncherId: tutor.tutorCruncherId,

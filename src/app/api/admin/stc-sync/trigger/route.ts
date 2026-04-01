@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { syncContractorsFromSTC } from "@/lib/stc-sync";
+import { syncContractorsFromAcme } from "@/lib/acme-sync";
 import { prisma } from "@/lib/prisma";
 
-// POST /api/admin/stc-sync/trigger - Manually trigger a sync
+// POST /api/admin/acme-sync/trigger - Manually trigger a sync
 export async function POST() {
   try {
     const session = await getServerSession(authOptions);
@@ -22,7 +22,7 @@ export async function POST() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const result = await syncContractorsFromSTC();
+    const result = await syncContractorsFromAcme();
 
     return NextResponse.json(result);
   } catch (error) {

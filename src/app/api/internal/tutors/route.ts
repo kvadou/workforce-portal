@@ -4,7 +4,7 @@ import { verifyInternalApiRequest } from "@/lib/internal-auth";
 
 /**
  * GET /api/internal/tutors
- * Get tutor profiles for STC integration
+ * Get tutor profiles for Acme integration
  * Query params:
  *   - tcId: TutorCruncher ID
  *   - email: User email
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    // Transform to STC-compatible format
+    // Transform to Acme-compatible format
     const response = tutors.map((t) => ({
       id: t.id,
       tutorCruncherId: t.tutorCruncherId,

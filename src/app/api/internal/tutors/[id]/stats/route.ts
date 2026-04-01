@@ -8,7 +8,7 @@ interface RouteParams {
 
 /**
  * POST /api/internal/tutors/[id]/stats
- * Update performance stats from STC
+ * Update performance stats from Acme
  *
  * Request body:
  *   - totalLessons: number

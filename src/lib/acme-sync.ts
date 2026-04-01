@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { stcDatabase, type STCContractor } from "@/lib/stc-database";
+import { acmeDatabase, type AcmeContractor } from "@/lib/acme-database";
 import crypto from "crypto";
 
 // Generate a placeholder password hash that can't be used for login
@@ -8,7 +8,7 @@ function generatePlaceholderPasswordHash(): string {
   return crypto.randomBytes(64).toString("hex");
 }
 
-export interface STCSyncResult {
+export interface AcmeSyncResult {
   success: boolean;
   contractorsFound: number;
   contractorsCreated: number;
@@ -17,11 +17,11 @@ export interface STCSyncResult {
 }
 
 /**
- * Sync approved contractors from STC to STT
+ * Sync approved contractors from Acme to the portal
  * Creates User + TutorProfile records for new contractors
  */
-export async function syncContractorsFromSTC(): Promise<STCSyncResult> {
-  const result: STCSyncResult = {
+export async function syncContractorsFromAcme(): Promise<AcmeSyncResult> {
+  const result: AcmeSyncResult = {
     success: true,
     contractorsFound: 0,
     contractorsCreated: 0,
@@ -37,14 +37,14 @@ export async function syncContractorsFromSTC(): Promise<STCSyncResult> {
   });
 
   try {
-    // Fetch approved contractors from STC
-    const stcContractors: STCContractor[] = await stcDatabase.getApprovedContractors();
-    result.contractorsFound = stcContractors.length;
+    // Fetch approved contractors from Acme
+    const acmeContractors: AcmeContractor[] = await acmeDatabase.getApprovedContractors();
+    result.contractorsFound = acmeContractors.length;
 
     // Get existing users by email for comparison
     const existingUsers = await prisma.user.findMany({
       where: {
-        email: { in: stcContractors.map((c) => c.email.toLowerCase()) },
+        email: { in: acmeContractors.map((c) => c.email.toLowerCase()) },
       },
       include: {
         tutorProfile: true,
@@ -62,7 +62,7 @@ export async function syncContractorsFromSTC(): Promise<STCSyncResult> {
       throw new Error("No HQ organization found");
     }
 
-    for (const contractor of stcContractors) {
+    for (const contractor of acmeContractors) {
       try {
         const email = contractor.email.toLowerCase();
         const existingUser = existingByEmail.get(email);

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-// GET /api/admin/stc-sync/logs - Get recent sync logs
+// GET /api/admin/acme-sync/logs - Get recent sync logs
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);

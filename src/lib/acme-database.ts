@@ -6,26 +6,26 @@ import { Pool, QueryResult } from "pg";
  * for pulling real tutor metrics (lessons, reviews, hours, etc.)
  */
 
-// Singleton pool for STC database connection
-let stcPool: Pool | null = null;
+// Singleton pool for Acme database connection
+let acmePool: Pool | null = null;
 
-// Cache for STC metrics (1 hour TTL)
+// Cache for Acme metrics (1 hour TTL)
 interface CachedMetrics {
-  data: STCTutorMetrics;
+  data: AcmeTutorMetrics;
   expiresAt: number;
 }
 const metricsCache = new Map<number, CachedMetrics>();
 const METRICS_CACHE_TTL = 60 * 60 * 1000; // 1 hour in ms
 
-function getSTCPool(): Pool {
-  if (!stcPool) {
+function getAcmePool(): Pool {
+  if (!acmePool) {
     const connectionString = process.env.DATABASE_URL_STC;
 
     if (!connectionString) {
       throw new Error("DATABASE_URL_STC environment variable is not set");
     }
 
-    stcPool = new Pool({
+    acmePool = new Pool({
       connectionString,
       ssl: { rejectUnauthorized: false },
       max: 5, // Limit connections since this is read-only
@@ -34,41 +34,41 @@ function getSTCPool(): Pool {
     });
 
     // Log connection errors but don't crash
-    stcPool.on("error", (err) => {
-      console.error("STC Database Pool Error:", err);
+    acmePool.on("error", (err) => {
+      console.error("Acme Database Pool Error:", err);
     });
   }
 
-  return stcPool;
+  return acmePool;
 }
 
 /**
- * Check if STC database connection is configured
+ * Check if Acme database connection is configured
  */
-export function isSTCDatabaseConfigured(): boolean {
+export function isAcmeDatabaseConfigured(): boolean {
   return !!process.env.DATABASE_URL_STC;
 }
 
 /**
- * Test the STC database connection
+ * Test the Acme database connection
  */
-export async function testSTCConnection(): Promise<boolean> {
-  if (!isSTCDatabaseConfigured()) {
+export async function testAcmeConnection(): Promise<boolean> {
+  if (!isAcmeDatabaseConfigured()) {
     return false;
   }
 
   try {
-    const pool = getSTCPool();
+    const pool = getAcmePool();
     const result = await pool.query("SELECT 1 as connected");
     return result.rows[0]?.connected === 1;
   } catch (error) {
-    console.error("STC Database connection test failed:", error);
+    console.error("Acme Database connection test failed:", error);
     return false;
   }
 }
 
-// Types for STC data
-export interface STCContractor {
+// Types for Acme data
+export interface AcmeContractor {
   contractor_id: number;
   first_name: string;
   last_name: string;
@@ -79,7 +79,7 @@ export interface STCContractor {
   created_at: Date;
 }
 
-export interface STCTutorMetrics {
+export interface AcmeTutorMetrics {
   totalLessons: number;
   totalHours: number;
   totalReviews: number;
@@ -89,7 +89,7 @@ export interface STCTutorMetrics {
   lessonsThisWeek: number;
 }
 
-export interface STCLesson {
+export interface AcmeLesson {
   appointment_id: number;
   contractor_id: number;
   start_time: Date;
@@ -100,7 +100,7 @@ export interface STCLesson {
   location_name: string | null;
 }
 
-export interface STCReview {
+export interface AcmeReview {
   review_id: number;
   contractor_id: number;
   star_rating_value: number;
@@ -110,17 +110,17 @@ export interface STCReview {
 }
 
 /**
- * Get a contractor by email from STC database
+ * Get a contractor by email from Acme database
  */
-export async function getContractorByEmail(email: string): Promise<STCContractor | null> {
-  if (!isSTCDatabaseConfigured()) {
-    console.log("STC database not configured, returning null");
+export async function getContractorByEmail(email: string): Promise<AcmeContractor | null> {
+  if (!isAcmeDatabaseConfigured()) {
+    console.log("Acme database not configured, returning null");
     return null;
   }
 
   try {
-    const pool = getSTCPool();
-    const result: QueryResult<STCContractor> = await pool.query(
+    const pool = getAcmePool();
+    const result: QueryResult<AcmeContractor> = await pool.query(
       `
       SELECT
         contractor_id,
@@ -147,16 +147,16 @@ export async function getContractorByEmail(email: string): Promise<STCContractor
 }
 
 /**
- * Get a contractor by ID from STC database
+ * Get a contractor by ID from Acme database
  */
-export async function getContractorById(contractorId: number): Promise<STCContractor | null> {
-  if (!isSTCDatabaseConfigured()) {
+export async function getContractorById(contractorId: number): Promise<AcmeContractor | null> {
+  if (!isAcmeDatabaseConfigured()) {
     return null;
   }
 
   try {
-    const pool = getSTCPool();
-    const result: QueryResult<STCContractor> = await pool.query(
+    const pool = getAcmePool();
+    const result: QueryResult<AcmeContractor> = await pool.query(
       `
       SELECT
         contractor_id,
@@ -182,12 +182,12 @@ export async function getContractorById(contractorId: number): Promise<STCContra
 }
 
 /**
- * Get tutor performance metrics from STC database
+ * Get tutor performance metrics from Acme database
  * Aggregates lessons, hours, reviews, and ratings
  * Results are cached for 1 hour to reduce database load
  */
-export async function getTutorMetrics(contractorId: number): Promise<STCTutorMetrics> {
-  if (!isSTCDatabaseConfigured()) {
+export async function getTutorMetrics(contractorId: number): Promise<AcmeTutorMetrics> {
+  if (!isAcmeDatabaseConfigured()) {
     return getEmptyMetrics();
   }
 
@@ -198,7 +198,7 @@ export async function getTutorMetrics(contractorId: number): Promise<STCTutorMet
   }
 
   try {
-    const pool = getSTCPool();
+    const pool = getAcmePool();
 
     // Get lesson statistics
     const lessonsResult = await pool.query(
@@ -261,7 +261,7 @@ export async function getTutorMetrics(contractorId: number): Promise<STCTutorMet
     const week = weekResult.rows[0];
     const reviews = reviewsResult.rows[0];
 
-    const metrics: STCTutorMetrics = {
+    const metrics: AcmeTutorMetrics = {
       totalLessons: parseInt(lessons?.total_lessons || "0", 10),
       totalHours: parseFloat(lessons?.total_hours || "0"),
       totalReviews: parseInt(reviews?.total_reviews || "0", 10),
@@ -302,13 +302,13 @@ export function invalidateMetricsCache(contractorId?: number): void {
 export async function getRecentLessons(
   contractorId: number,
   limit: number = 10
-): Promise<STCLesson[]> {
-  if (!isSTCDatabaseConfigured()) {
+): Promise<AcmeLesson[]> {
+  if (!isAcmeDatabaseConfigured()) {
     return [];
   }
 
   try {
-    const pool = getSTCPool();
+    const pool = getAcmePool();
     const result = await pool.query(
       `
       SELECT
@@ -345,13 +345,13 @@ export async function getRecentLessons(
 export async function getRecentReviews(
   contractorId: number,
   limit: number = 5
-): Promise<STCReview[]> {
-  if (!isSTCDatabaseConfigured()) {
+): Promise<AcmeReview[]> {
+  if (!isAcmeDatabaseConfigured()) {
     return [];
   }
 
   try {
-    const pool = getSTCPool();
+    const pool = getAcmePool();
     const result = await pool.query(
       `
       SELECT
@@ -380,14 +380,14 @@ export async function getRecentReviews(
 /**
  * Get all approved contractors (for sync)
  */
-export async function getAllApprovedContractors(): Promise<STCContractor[]> {
-  if (!isSTCDatabaseConfigured()) {
+export async function getAllApprovedContractors(): Promise<AcmeContractor[]> {
+  if (!isAcmeDatabaseConfigured()) {
     return [];
   }
 
   try {
-    const pool = getSTCPool();
-    const result: QueryResult<STCContractor> = await pool.query(
+    const pool = getAcmePool();
+    const result: QueryResult<AcmeContractor> = await pool.query(
       `
       SELECT
         contractor_id,
@@ -414,14 +414,14 @@ export async function getAllApprovedContractors(): Promise<STCContractor[]> {
 /**
  * Get contractors added since a specific date (for incremental sync)
  */
-export async function getNewContractorsSince(since: Date): Promise<STCContractor[]> {
-  if (!isSTCDatabaseConfigured()) {
+export async function getNewContractorsSince(since: Date): Promise<AcmeContractor[]> {
+  if (!isAcmeDatabaseConfigured()) {
     return [];
   }
 
   try {
-    const pool = getSTCPool();
-    const result: QueryResult<STCContractor> = await pool.query(
+    const pool = getAcmePool();
+    const result: QueryResult<AcmeContractor> = await pool.query(
       `
       SELECT
         contractor_id,
@@ -448,10 +448,10 @@ export async function getNewContractorsSince(since: Date): Promise<STCContractor
 }
 
 /**
- * Get leaderboard data directly from STC
+ * Get leaderboard data directly from Acme
  * (Can be used for comparison or as fallback)
  */
-export async function getSTCLeaderboard(
+export async function getAcmeLeaderboard(
   limit: number = 10,
   period: "all" | "month" | "week" = "month"
 ): Promise<{
@@ -462,7 +462,7 @@ export async function getSTCLeaderboard(
   totalHours: number;
   averageRating: number;
 }[]> {
-  if (!isSTCDatabaseConfigured()) {
+  if (!isAcmeDatabaseConfigured()) {
     return [];
   }
 
@@ -474,7 +474,7 @@ export async function getSTCLeaderboard(
   }
 
   try {
-    const pool = getSTCPool();
+    const pool = getAcmePool();
     const result = await pool.query(
       `
       SELECT
@@ -507,7 +507,7 @@ export async function getSTCLeaderboard(
       averageRating: parseFloat(row.average_rating),
     }));
   } catch (error) {
-    console.error("Error fetching STC leaderboard:", error);
+    console.error("Error fetching Acme leaderboard:", error);
     return [];
   }
 }
@@ -515,7 +515,7 @@ export async function getSTCLeaderboard(
 /**
  * Helper: Return empty metrics object
  */
-function getEmptyMetrics(): STCTutorMetrics {
+function getEmptyMetrics(): AcmeTutorMetrics {
   return {
     totalLessons: 0,
     totalHours: 0,
@@ -528,19 +528,19 @@ function getEmptyMetrics(): STCTutorMetrics {
 }
 
 /**
- * Close the STC database pool (for cleanup)
+ * Close the Acme database pool (for cleanup)
  */
-export async function closeSTCPool(): Promise<void> {
-  if (stcPool) {
-    await stcPool.end();
-    stcPool = null;
+export async function closeAcmePool(): Promise<void> {
+  if (acmePool) {
+    await acmePool.end();
+    acmePool = null;
   }
 }
 
 // Convenience export for sync operations
-export const stcDatabase = {
-  isConfigured: isSTCDatabaseConfigured,
-  testConnection: testSTCConnection,
+export const acmeDatabase = {
+  isConfigured: isAcmeDatabaseConfigured,
+  testConnection: testAcmeConnection,
   getContractorByEmail,
   getContractorById,
   getTutorMetrics,
@@ -548,7 +548,7 @@ export const stcDatabase = {
   getRecentReviews,
   getApprovedContractors: getAllApprovedContractors,
   getNewContractorsSince,
-  getLeaderboard: getSTCLeaderboard,
+  getLeaderboard: getAcmeLeaderboard,
   invalidateCache: invalidateMetricsCache,
-  close: closeSTCPool,
+  close: closeAcmePool,
 };

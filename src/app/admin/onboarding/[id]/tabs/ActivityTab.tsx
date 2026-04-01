@@ -50,9 +50,9 @@ export default function ActivityTab({
           />
           <ChecklistItem
             label="Acme Email Sent"
-            field="storyTimeEmailSent"
-            checked={data.storyTimeEmailSent}
-            timestamp={data.storyTimeEmailSentAt}
+            field="welcomeEmailSent"
+            checked={data.welcomeEmailSent}
+            timestamp={data.welcomeEmailSentAt}
             onToggle={onToggle}
             isPending={togglePending}
           />

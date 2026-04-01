@@ -102,7 +102,7 @@ export default function STCSyncPage() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900 flex items-center gap-2">
             <CircleStackIcon className="h-7 w-7 text-primary-500" />
-            STC Contractor Sync
+            Acme Contractor Sync
           </h1>
           <p className="text-neutral-600 mt-1">
             Synchronize approved contractors from Acme Workforce database

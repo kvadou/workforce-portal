@@ -3,7 +3,7 @@
 /* Acme Workforce - "Playful Professional" Design System */
 
 :root {
-  /* Primary Purple Palette - STC warm purple */
+  /* Primary Purple Palette - Acme warm purple */
   --primary-50: #F8F5FC;
   --primary-100: #F0EAFA;
   --primary-200: #DED0F2;
@@ -19,7 +19,7 @@
   /* Brand Aliases */
   --brand-purple: #6A469D;
 
-  /* Brand Accent Colors - STC palette */
+  /* Brand Accent Colors - Acme palette */
   --accent-cyan: #50C8DF;
   --accent-cyan-light: #E8FBFF;
   --accent-green: #34B256;
@@ -35,7 +35,7 @@
   --accent-light: #E8FBFF;
   --accent-gold: #FFB300;
 
-  /* Semantic Colors - STC palette */
+  /* Semantic Colors - Acme palette */
   --success: #34B256;
   --success-light: #E8F8ED;
   --success-dark: #2A9147;
@@ -73,7 +73,7 @@
   --border: #E5E5E5;
   --muted: #737373;
 
-  /* Shadows — canonical STC design system values */
+  /* Shadows — canonical Acme design system values */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -182,7 +182,7 @@
   --font-sans: var(--font-poppins), 'Poppins', system-ui, sans-serif;
   --font-body: var(--font-poppins), 'Poppins', system-ui, sans-serif;
 
-  /* Z-Index Scale — canonical STC design system */
+  /* Z-Index Scale — canonical Acme design system */
   --z-base: 0;
   --z-dropdown: 10;
   --z-sticky: 20;

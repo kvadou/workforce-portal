@@ -62,7 +62,7 @@ export function CareerStatsPanel({ stats, showTrends = true }: CareerStatsPanelP
           <TrophyIcon className="h-5 w-5 text-primary-500" />
           <h2 className="font-semibold text-neutral-900">Career Stats</h2>
           <span className="text-xs text-neutral-500 bg-neutral-100 px-2 py-0.5 rounded-full ml-auto">
-            From STC
+            From Acme
           </span>
         </div>
       </div>

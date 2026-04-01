@@ -37,8 +37,8 @@ export interface OnboardingDetail {
   nextStepsShadowEmailSentAt: string | null;
   onlineCertEmailSent: boolean;
   onlineCertEmailSentAt: string | null;
-  storyTimeEmailSent: boolean;
-  storyTimeEmailSentAt: string | null;
+  welcomeEmailSent: boolean;
+  welcomeEmailSentAt: string | null;
 
   // Admin checklist: Milestones
   certificationComplete: boolean;

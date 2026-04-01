@@ -5,7 +5,7 @@ import { AuthProvider } from "@/providers/AuthProvider";
 import { QueryProvider } from "@/providers/QueryProvider";
 import { ToastProvider } from "@/providers/ToastProvider";
 
-// Poppins - Clean, modern, matches STC design system
+// Poppins - Clean, modern, matches Acme design system
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],

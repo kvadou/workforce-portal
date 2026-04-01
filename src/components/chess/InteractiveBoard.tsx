@@ -5,7 +5,7 @@ import { Chessboard } from "react-chessboard";
 import { ArrowsUpDownIcon } from "@heroicons/react/24/outline";
 
 // Acme Workforce character piece images
-// Adapted from STC Play app - unique per pawn file, per bishop square color
+// Adapted from Acme Play app - unique per pawn file, per bishop square color
 const STORY_PIECES: Record<string, string> = {
   wK: "/assets/pieces/story/Wk.png",
   wQ: "/assets/pieces/story/Wq.png",

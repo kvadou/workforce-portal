@@ -146,7 +146,7 @@ export const sectionConfigs: SectionConfig[] = [
       { name: "Email Templates", href: "/admin/settings/email-templates", icon: EnvelopeIcon },
       { name: "Points & Rewards", href: "/admin/settings/points-rules", icon: StarIcon },
       { name: "Goal Templates", href: "/admin/settings/goal-templates", icon: FlagIcon },
-      { name: "STC Sync", href: "/admin/settings/stc-sync", icon: ArrowPathIcon },
+      { name: "Acme Sync", href: "/admin/settings/stc-sync", icon: ArrowPathIcon },
     ],
   },
 ];

@@ -100,7 +100,7 @@ export const authOptions: NextAuthOptions = {
 
       const email = user.email;
       if (!email?.endsWith("@acmeworkforce.com")) {
-        console.log("[Auth] Google sign-in rejected: non-STC email", email);
+        console.log("[Auth] Google sign-in rejected: non-Acme email", email);
         return false;
       }
 
