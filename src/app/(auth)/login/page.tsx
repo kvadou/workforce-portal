@@ -18,6 +18,28 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  // Auto-login as demo user for portfolio demo mode
+  const [isAutoLogging, setIsAutoLogging] = useState(true);
+  useState(() => {
+    (async () => {
+      try {
+        const result = await signIn("credentials", {
+          email: "demo@acmeworkforce.com",
+          password: "demo",
+          redirect: false,
+        });
+        if (!result?.error) {
+          router.push(callbackUrl);
+          router.refresh();
+          return;
+        }
+      } catch {
+        // Fall through to manual login
+      }
+      setIsAutoLogging(false);
+    })();
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -42,6 +64,14 @@ function LoginForm() {
       setIsLoading(false);
     }
   };
+
+  if (isAutoLogging) {
+    return (
+      <div className="min-h-screen bg-accent-light flex items-center justify-center p-4">
+        <ArrowPathIcon className="w-8 h-8 animate-spin text-primary-500" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-accent-light flex items-center justify-center p-4">

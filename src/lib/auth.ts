@@ -29,6 +29,20 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // Demo mode: accept demo credentials without DB lookup
+        if (credentials.email === "demo@acmeworkforce.com" && credentials.password === "demo") {
+          console.log("[Auth] Demo login");
+          return {
+            id: "demo-user",
+            email: "demo@acmeworkforce.com",
+            name: "Demo User",
+            role: "ADMIN",
+            organizationId: null,
+            organizationSubdomain: null,
+            isOnboarding: false,
+          };
+        }
+
         try {
           console.log("[Auth] Looking up user:", credentials.email);
           const user = await prisma.user.findUnique({
