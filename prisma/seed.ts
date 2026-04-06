@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { seedChessLessons } from "./seed-chess-lessons";
 import { seedChessPoints } from "./seed-chess-points";
 import { seedChessBadges } from "./seed-chess-badges";
+import { seedDemoData } from "./seed-demo-data";
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
 const prisma = new PrismaClient({ adapter });
@@ -1726,6 +1727,9 @@ async function main() {
   await seedChessPoints(prisma as any);
   await seedChessBadges(prisma as any);
   console.log("  ✓ Chess lessons, points rules, and badges seeded");
+
+  // ===== DEMO USER DATA =====
+  await seedDemoData(prisma as any);
 }
 
 main()
