@@ -13,6 +13,20 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Starting seed...\n");
 
+  // Clear all tables first so re-seeding refreshes relative dates instead of
+  // leaving stale rows (most upserts use `update: {}`, so they never update an
+  // existing row). TRUNCATE works over the Neon pooler where `migrate reset`
+  // does not. Demo DB only.
+  const tablesToClear = await prisma.$queryRaw<{ tablename: string }[]>`
+    SELECT tablename FROM pg_tables
+    WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma%'`;
+  if (tablesToClear.length) {
+    await prisma.$executeRawUnsafe(
+      `TRUNCATE ${tablesToClear.map((t) => `"${t.tablename}"`).join(",")} RESTART IDENTITY CASCADE`
+    );
+    console.log(`  ✓ Cleared ${tablesToClear.length} tables`);
+  }
+
   // ===== ORGANIZATIONS =====
   console.log("Creating organizations...");
 
@@ -321,13 +335,20 @@ async function main() {
   });
   console.log("  ✓ Created welcome announcement");
 
+  const conferenceDate = new Date();
+  conferenceDate.setDate(conferenceDate.getDate() + 75);
+  const conferenceDateStr = conferenceDate.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
   await prisma.announcement.upsert({
     where: { id: "clannounce002" },
     update: {},
     create: {
       id: "clannounce002",
-      title: "Annual Tutor Conference - March 15, 2025",
-      content: "Save the date! Our annual tutor conference will be held on March 15, 2025. More details coming soon.",
+      title: `Annual Tutor Conference - ${conferenceDateStr}`,
+      content: `Save the date! Our annual tutor conference will be held on ${conferenceDateStr}. More details coming soon.`,
       type: "IMPORTANT_DATE",
       targetRoles: [UserRole.TUTOR, UserRole.LEAD_TUTOR, UserRole.FRANCHISEE_OWNER],
       isPinned: false,
@@ -578,7 +599,7 @@ async function main() {
       totalLessons: 250,
       totalHours: 375.5,
       averageRating: 4.9,
-      lastLessonDate: new Date("2025-01-15"),
+      lastLessonDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
     },
   });
   console.log("  ✓ Created lead tutor profile:", westsideLeadTutor.email);
@@ -608,7 +629,7 @@ async function main() {
       totalLessons: 45,
       totalHours: 67.5,
       averageRating: 4.7,
-      lastLessonDate: new Date("2025-01-14"),
+      lastLessonDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
     },
   });
   console.log("  ✓ Created tutor profile:", westsideTutor.email);
