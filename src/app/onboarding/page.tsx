@@ -105,8 +105,57 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
     where: { isActive: true },
   });
 
-  // Calculate progress
-  const videoProgress = (progress?.videoProgress as Array<{
+  // Load dynamic config
+  const [journeySteps, badges] = await Promise.all([
+    getJourneySteps(),
+    getBadges(),
+  ]);
+
+  // For admin viewers without progress, provide representative in-progress demo
+  // data so the dashboard showcases a populated onboarding journey rather than
+  // an empty 0% slate. Real onboarding tutors always use their own DB record.
+  const nowTs = new Date();
+  const daysAgoTs = (n: number) => new Date(nowTs.getTime() - n * 86400000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dashboardProgress = progress || ({
+    id: "",
+    userId: session.user.id,
+    status: "POST_ORIENTATION_TRAINING",
+    videoProgress: videos.map((v, i) => ({
+      videoId: v.id,
+      percentWatched: 100,
+      completedAt: daysAgoTs(18 - i).toISOString(),
+    })),
+    welcomeCompletedAt: daysAgoTs(20),
+    videosCompletedAt: daysAgoTs(16),
+    quizScore: 92,
+    quizAttempts: 1,
+    quizPassedAt: daysAgoTs(16),
+    profileCompletedAt: daysAgoTs(14),
+    w9CompletedAt: daysAgoTs(13),
+    phase1CompletedAt: daysAgoTs(16),
+    phase2CompletedAt: daysAgoTs(12),
+    phase3CompletedAt: daysAgoTs(6),
+    phase4CompletedAt: null,
+    phase5CompletedAt: null,
+    phase6CompletedAt: null,
+    orientationSessionId: null,
+    orientationAttendedAt: daysAgoTs(6),
+    completedAt: null,
+    createdAt: daysAgoTs(21),
+    updatedAt: nowTs,
+    user: {
+      name: session.user.name || "Jordan Rivera",
+      email: session.user.email || "",
+      headshotUrl: null,
+      w9SignedAt: daysAgoTs(13),
+    },
+    orientationSession: null,
+    videoPartProgress: [],
+  } as any);
+
+  // Calculate video progress from the active progress record (real or demo mock)
+  const videoProgress = (dashboardProgress.videoProgress as Array<{
     videoId: string;
     percentWatched: number;
     completedAt?: string;
@@ -115,41 +164,6 @@ export default async function OnboardingPage({ searchParams }: PageProps) {
   const completedVideos = videoProgress.filter(
     (v) => v.percentWatched >= 90
   ).length;
-
-  // Load dynamic config
-  const [journeySteps, badges] = await Promise.all([
-    getJourneySteps(),
-    getBadges(),
-  ]);
-
-  // For admin viewers without progress, provide mock data for the dashboard
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const dashboardProgress = progress || ({
-    id: "",
-    userId: session.user.id,
-    status: "WELCOME",
-    videoProgress: [],
-    welcomeCompletedAt: null,
-    videosCompletedAt: null,
-    quizScore: null,
-    quizAttempts: 0,
-    quizPassedAt: null,
-    profileCompletedAt: null,
-    w9CompletedAt: null,
-    orientationSessionId: null,
-    orientationAttendedAt: null,
-    completedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    user: {
-      name: session.user.name || "Admin Viewer",
-      email: session.user.email || "",
-      headshotUrl: null,
-      w9SignedAt: null,
-    },
-    orientationSession: null,
-    videoPartProgress: [],
-  } as any);
 
   // Compute phase status
   const phases = getPhaseStatus(dashboardProgress);
