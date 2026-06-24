@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useDashboard } from "@/hooks/useDashboard";
@@ -13,11 +14,56 @@ import {
   PlayIcon,
   AcademicCapIcon,
   CheckCircleIcon,
+  MegaphoneIcon,
 } from "@heroicons/react/24/outline";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 
+interface AnnouncementItem {
+  id: string;
+  title: string;
+  content: string;
+  type: string;
+  isPinned?: boolean;
+  publishDate?: string;
+}
+
+function timeAgo(date?: string): string {
+  if (!date) return "";
+  const diff = Date.now() - new Date(date).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return `${Math.floor(days / 30)}mo ago`;
+}
+
+const TYPE_STYLES: Record<string, string> = {
+  IMPORTANT_DATE: "bg-warning-light text-warning-dark",
+  ANNOUNCEMENT: "bg-info-light text-info-dark",
+  STORY_SPOTLIGHT: "bg-primary-50 text-primary-700",
+  TUTOR_REVIEW: "bg-success-light text-success",
+};
+const TYPE_FALLBACK = "bg-neutral-100 text-neutral-600";
+
 export function DashboardClient() {
   const { data: dashboard, isLoading, error } = useDashboard();
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/announcements?isActive=true")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const list: AnnouncementItem[] = Array.isArray(d) ? d : d.announcements || [];
+        const sorted = [...list].sort((a, b) => {
+          if (!!b.isPinned !== !!a.isPinned) return b.isPinned ? 1 : -1;
+          return new Date(b.publishDate || 0).getTime() - new Date(a.publishDate || 0).getTime();
+        });
+        setAnnouncements(sorted.slice(0, 4));
+      })
+      .catch(() => {});
+  }, []);
 
   if (isLoading) {
     return (
@@ -179,6 +225,40 @@ export function DashboardClient() {
               </div>
             )}
           </div>
+
+          {/* Latest Updates */}
+          {announcements.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+                  <MegaphoneIcon className="h-5 w-5 text-primary-500" />
+                  Latest Updates
+                </h2>
+              </div>
+              <div className="space-y-2">
+                {announcements.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-start gap-4 p-4 rounded-xl bg-neutral-50 border border-neutral-200 hover:border-primary-200 transition-all duration-200"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {a.isPinned && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-primary-600">Pinned</span>
+                        )}
+                        <p className="font-medium text-neutral-900 text-sm truncate">{a.title}</p>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${TYPE_STYLES[a.type] || TYPE_FALLBACK}`}>
+                          {a.type?.replace(/_/g, " ").toLowerCase()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500 mt-1 line-clamp-2">{a.content}</p>
+                    </div>
+                    <span className="text-xs text-neutral-400 whitespace-nowrap pt-0.5">{timeAgo(a.publishDate)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardLayout>
