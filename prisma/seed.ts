@@ -22,7 +22,7 @@ async function main() {
     WHERE schemaname = 'public' AND tablename NOT LIKE '_prisma%'`;
   if (tablesToClear.length) {
     await prisma.$executeRawUnsafe(
-      `TRUNCATE ${tablesToClear.map((t) => `"${t.tablename}"`).join(",")} RESTART IDENTITY CASCADE`
+      `TRUNCATE ${tablesToClear.map((t) => `"${t.tablename.replace(/"/g, '""')}"`).join(",")} RESTART IDENTITY CASCADE`
     );
     console.log(`  ✓ Cleared ${tablesToClear.length} tables`);
   }
